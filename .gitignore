@@ -1,4 +1,12 @@
 .DS_Store
 Thumbs.db
-node_modules/
+.godot/
+.local-data/
+__pycache__/
+*.pyc
+builds/
+dist/
+.env
+.env.*
 *.log
+node_modules/

@@ -1,4 +1,4 @@
-name: Deploy to GitHub Pages
+name: Build and deploy to GitHub Pages
 
 on:
   push:
@@ -14,28 +14,72 @@ concurrency:
   group: pages
   cancel-in-progress: true
 
+env:
+  GODOT_VERSION: 4.7.2
+
 jobs:
+  build:
+    name: Export web build
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Cache Godot editor and export templates
+        id: godot-cache
+        uses: actions/cache@v4
+        with:
+          path: |
+            ~/godot
+            ~/.local/share/godot/export_templates
+          key: godot-${{ env.GODOT_VERSION }}-web-v1
+
+      - name: Download Godot ${{ env.GODOT_VERSION }} and web export templates
+        if: steps.godot-cache.outputs.cache-hit != 'true'
+        run: |
+          set -euo pipefail
+          BASE="https://github.com/godotengine/godot-builds/releases/download/${GODOT_VERSION}-stable"
+          mkdir -p ~/godot ~/.local/share/godot/export_templates/${GODOT_VERSION}.stable
+          curl -sSL -o /tmp/godot.zip "${BASE}/Godot_v${GODOT_VERSION}-stable_linux.x86_64.zip"
+          unzip -q /tmp/godot.zip -d ~/godot
+          mv ~/godot/Godot_v${GODOT_VERSION}-stable_linux.x86_64 ~/godot/godot
+          chmod +x ~/godot/godot
+          curl -sSL -o /tmp/templates.tpz "${BASE}/Godot_v${GODOT_VERSION}-stable_export_templates.tpz"
+          unzip -q -j /tmp/templates.tpz \
+            "templates/web_nothreads_release.zip" "templates/web_nothreads_debug.zip" \
+            "templates/web_release.zip" "templates/web_debug.zip" "templates/version.txt" \
+            -d ~/.local/share/godot/export_templates/${GODOT_VERSION}.stable/
+          rm -f /tmp/godot.zip /tmp/templates.tpz
+
+      - name: Check toolchain
+        run: python3 tools/dev.py doctor --godot ~/godot/godot
+
+      - name: Run simulation tests
+        run: python3 tools/dev.py test --godot ~/godot/godot
+
+      - name: Export web build
+        run: |
+          python3 tools/dev.py export-web --godot ~/godot/godot
+          touch builds/web/.nojekyll
+          ls -la builds/web
+
+      - name: Upload site
+        uses: actions/upload-pages-artifact@v3
+        with:
+          path: builds/web
+
   deploy:
+    name: Deploy
+    needs: build
     runs-on: ubuntu-latest
     environment:
       name: github-pages
       url: ${{ steps.deployment.outputs.page_url }}
     steps:
-      - name: Checkout
-        uses: actions/checkout@v4
-
-      - name: Syntax check
-        run: node --check js/game.js
-
       - name: Setup Pages
         uses: actions/configure-pages@v5
         with:
           enablement: true
-
-      - name: Upload site
-        uses: actions/upload-pages-artifact@v3
-        with:
-          path: .
 
       - name: Deploy
         id: deployment

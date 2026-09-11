@@ -1,54 +1,112 @@
-# Chill Town 🍇
+# Chill Town
 
-A cozy top-down browser game: stroll through a small vineyard-valley town, pick grapes, help the townsfolk get the harvest festival ready, then relax on a bench and watch the day turn to night.
+An open medieval village-building game for desktop and mobile browsers. Plan roads
+and buildings, train workers, and watch the village work on its own. Built with
+Godot 4.7.2 and GDScript.
 
-Plain HTML, CSS and JavaScript. No dependencies, no build step. Works on desktop and mobile.
+Chill Town is an English-language fork of
+[The Free Game](https://github.com/LucasMarquesShiva/the-free-game) by
+**Lucas Marques, from Shiva**, with touch controls and a phone-sized interface.
 
 ## Play
 
-Open `index.html` in any modern browser, or serve the folder with any static file server:
+The GitHub Actions workflow in this repository exports the game and publishes it to
+GitHub Pages on every push. Once Pages is enabled for the repository (Settings →
+Pages → Source: **GitHub Actions**), the game is live at:
 
-```bash
-npx http-server .        # then open http://localhost:8080
-# or
-python3 -m http.server   # then open http://localhost:8000
-```
+`https://<your-user>.github.io/chill-town/`
+
+There is no account, server, or API key. Saves stay in the browser that made them.
 
 ## Controls
 
-| Action | Keyboard | Touch |
+| Action | Mouse and keyboard | Touch |
 | --- | --- | --- |
-| Walk | WASD or arrow keys | Drag on the left half of the screen (virtual joystick) |
-| Talk / pick grapes / sit | E, Space or Enter | A button (bottom right) |
-| Advance dialogue | E, Space or Enter | Tap the dialogue box or the A button |
-| Menu | Esc | ☰ button (top right) |
+| Move the camera | Drag the ground, or WASD / arrow keys | Drag with one finger (two fingers while drawing roads) |
+| Zoom | Mouse wheel | Pinch, or the **+** / **−** buttons |
+| Rotate the view | Q / E | The two rotate buttons on the camera pad |
+| Recenter on the village | Home, or the **Village** button | The crosshair button on the camera pad |
+| Select or build | Click | Tap |
+| Draw roads | R, then drag | **Roads**, then drag with one finger |
+| Pause, speed | Space, 1 / 2 / 4 | **Pause**, **1×** button cycles speed |
+| Save / load | F5 / F9 | Menu |
 
-Touch controls appear automatically on touch devices and can be toggled from the pause menu.
+The camera pad appears automatically on touch screens. On narrow screens the HUD
+switches to a compact layout with fewer counters.
 
-## The game
+## What is playable
 
-- Talk to **Mayor Rosa** in the town square to start the harvest quest.
-- Pick ripe grape bunches in the north or south vineyard (ripe bunches sparkle; picked vines regrow after a while).
-- Deliver the grapes to **Otto** at the winery, then carry his first bottle to **Bea** at the café.
-- After the festival is saved, keep exploring: sell grapes to Otto for coins, chat with Lu the fisherman, Pip and Biscuit the dog, and sit on benches to relax.
-- A full day/night cycle lasts about four minutes; lanterns light up at dusk.
-- Progress saves automatically in your browser (localStorage).
+This is a browser beta, not a finished commercial release. It begins with a main
+building, an instructor school, a plaza, and villagers. You draw roads, place
+buildings, train professions, and expand the economy.
 
-## Deploy
+- Civilians accept tasks automatically and gather in the plaza when idle.
+- Servants deliver materials; builders construct buildings and road tiles.
+- The school spends gold and trains new people.
+- Woodcutters harvest trees; the sawmill turns trunks into timber; quarries need a stone deposit.
+- Grain goes through mill and bakery to loaves; workers eat at the inn.
+- Barracks take recruits plus axes or bows. Army mode sets a company objective.
+- Menu → first lesson locks the farm/wine chain until school, inn, woodcutter and quarry exist.
+- Manual saves and autosaves are local to each browser and device.
 
-The repository ships with a GitHub Actions workflow (`.github/workflows/deploy.yml`) that publishes the site to **GitHub Pages** on every push to `main`.
+## Develop
 
-1. In the repository settings open **Pages** and set **Source** to **GitHub Actions**.
-2. Push to `main` (or run the workflow manually from the Actions tab).
-3. The game will be live at `https://<your-user>.github.io/chill-town/`.
+1. Install the standard **Godot 4.7.2** editor from the
+   [official release](https://github.com/godotengine/godot-builds/releases/tag/4.7.2-stable).
+2. In Godot choose **Import**, select `game/project.godot`, and open it.
+3. Press **F5** to run the main scene (`scenes/approved.tscn`).
 
-Because everything is static and paths are relative, the folder can also be dropped onto Netlify, Vercel, Cloudflare Pages, itch.io, or any web server.
+Optional command line (Python 3.10+):
 
-## Project layout
-
+```sh
+python3 tools/dev.py doctor        # check the Godot version
+python3 tools/dev.py run           # launch the game
+python3 tools/dev.py test          # headless simulation tests
+python3 tools/dev.py export-web    # needs the 4.7.2 web export templates
+python3 tools/dev.py serve --port 8000
 ```
-index.html           page shell, HUD, dialogue box, touch controls, title and pause menus
-css/style.css        styling, responsive layout, safe-area handling for phones
-js/game.js           world generation, rendering, input (keyboard + touch), NPCs, quest, save/load
-.github/workflows/   GitHub Pages deployment
-```
+
+Pass `--godot /path/to/Godot` or set `GODOT_BIN` if Godot is not on your PATH.
+The web export goes to `builds/web/`; serve it over HTTP rather than opening the
+file directly. See [docs/WEB.md](docs/WEB.md) for hosting notes.
+
+## Language
+
+The game starts in English. Portuguese (Brazil) and Simplified Chinese can be
+chosen from the in-game menu; the choice is remembered per device. Source strings
+in the code are Portuguese keys translated through `game/locale/en.json`.
+
+## Repository layout
+
+| Folder | Contents |
+| --- | --- |
+| `game/` | Complete editable Godot project |
+| `game/simulation/` | Civilian autonomy, roads, building, production, saves |
+| `game/presentation/` | 3D scene, terrain, people, procedural building models |
+| `game/ui/` | HUD, training, build menus, touch camera pad |
+| `game/assets/` | Runtime images, textures, mesh resources, shaders, previews |
+| `game/tests/` | Simulation checks and development render harnesses |
+| `art/` | Original art, concept sheets, visual specifications |
+| `tools/` | Development commands and the browser loading screen |
+| `docs/` | Architecture, customization and publication guides |
+| `.github/workflows/` | Web export and GitHub Pages deployment |
+
+## Changes from The Free Game
+
+- Renamed to Chill Town (project name, loading screen, in-game brand, save folder).
+- English is the default language; 144 missing English strings were added.
+- The worker "working" animation now matches translated status text, not only Portuguese.
+- Touch controls: on-screen camera pad (zoom, rotate, recenter), two-finger pan, and a
+  phone layout for the HUD; the loading screen no longer nags on phone-sized windows.
+- Added a headless test for the touch HUD (`game/tests/test_touch_hud.gd`).
+- Added a GitHub Actions workflow that runs the simulation tests, exports the web
+  build with Godot 4.7.2, and deploys it to GitHub Pages.
+
+## License and credit
+
+Code, tools and documentation are MIT licensed (see [LICENSE](LICENSE)). Original
+artwork is CC BY 4.0 (see [LICENSE-ASSETS.md](LICENSE-ASSETS.md)). Engine notices are in
+[THIRD_PARTY_NOTICES.md](THIRD_PARTY_NOTICES.md).
+
+> Original artwork: Lucas Marques, from Shiva — The Free Game.
+> CC BY 4.0. Changes: renamed to Chill Town, English default, touch controls.
