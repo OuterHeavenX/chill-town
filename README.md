@@ -109,6 +109,8 @@ in the code are Portuguese keys translated through `game/locale/en.json`.
 - Touch controls: two-finger pinch, twist-to-rotate and pan; an on-screen camera pad
   (zoom, rotate, recenter); and a phone layout for the HUD that respects the device
   safe area and adapts the counter row to the width available.
+- Panels scroll from a drag anywhere inside them. Buttons used to swallow the drag,
+  so on a phone you could only scroll by catching a gap between two cards.
 - The stone deposit is now visible as granite outcrops south of the main building, and its
   cells are highlighted while the quarry tool is active (it was invisible before).
 - Added a headless test for the touch HUD and the deposit markers (`game/tests/test_touch_hud.gd`).

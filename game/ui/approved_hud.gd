@@ -27,6 +27,41 @@ const ITEM_NAMES := {"wood":"Madeira", "stone":"Pedra", "food":"Alimentos", "gra
 const SHORT_NAMES := {"house":"Casa", "farm":"Horta", "vineyard":"Parreiral", "winery":"Vinícola", "store":"Armazém", "lumber":"Lenhador", "quarry":"Pedreira", "training":"Escola", "inn":"Taverna", "sawmill":"Serraria", "mill":"Moinho", "bakery":"Padaria", "workshop":"Armas", "barracks":"Quartel"}
 const BUILD_HINTS := {"house":"Abrigo", "farm":"Alimento e cereal", "vineyard":"O começo de cada vinho", "winery":"Uvas viram vinho", "store":"Depósito físico", "lumber":"Corta árvores", "quarry":"Pedra na jazida", "training":"Forma civis com ouro", "inn":"Os trabalhadores comem aqui", "sawmill":"Troncos viram madeira", "mill":"Cereal vira farinha", "bakery":"Farinha vira pão", "workshop":"Machados e arcos", "barracks":"Recrutas recebem armas"}
 
+## Every card in a panel is a Button, and a Button swallows the touch drag, so
+## a phone could only scroll in the gaps between cards. These forward the drag
+## to the scrolling ancestor and remember that the press was really a scroll.
+class ScrollButton extends Button:
+
+	const DRAG_DEADZONE := 6.0
+	var dragged := false
+	var _travel := 0.0
+
+	func _gui_input(event: InputEvent) -> void:
+		if event is InputEventScreenTouch:
+			if (event as InputEventScreenTouch).pressed:
+				dragged = false
+				_travel = 0.0
+			return
+		if event is InputEventScreenDrag:
+			var scroll := _scrolling_ancestor()
+			if scroll == null:
+				return
+			var drag := event as InputEventScreenDrag
+			_travel += absf(drag.relative.y)
+			if _travel > DRAG_DEADZONE:
+				dragged = true
+			scroll.scroll_vertical -= roundi(drag.relative.y)
+			accept_event()
+
+	func _scrolling_ancestor() -> ScrollContainer:
+		var node := get_parent()
+		while node != null:
+			if node is ScrollContainer:
+				return node as ScrollContainer
+			node = node.get_parent()
+		return null
+
+
 class Glyph extends Control:
 
 	var kind := "house"
@@ -370,11 +405,16 @@ func _label(parent: Node, text: String = "", size: int = 17, color: Color = INK,
 	return label
 
 func _button(parent: Node, text: String, action: Callable, min_width: float = 0) -> Button:
-	var button := Button.new()
+	var button := ScrollButton.new()
 	button.text = text
 	button.custom_minimum_size = Vector2(min_width,44)
 	button.mouse_default_cursor_shape = Control.CURSOR_POINTING_HAND
-	button.pressed.connect(action)
+	# A drag that scrolled the panel must not also fire the button under it.
+	button.pressed.connect(func():
+		if button.dragged:
+			button.dragged = false
+			return
+		action.call())
 	parent.add_child(button)
 	return button
 

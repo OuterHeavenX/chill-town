@@ -21,6 +21,11 @@ func touch(index:int,down:bool,position:Vector2)->void:
 	var e:=InputEventScreenTouch.new();e.index=index;e.pressed=down;e.position=position;game._input(e)
 func drag(index:int,position:Vector2,relative:Vector2)->void:
 	var e:=InputEventScreenDrag.new();e.index=index;e.position=position;e.relative=relative;game._input(e)
+## Pushed through the viewport so the GUI sees them, unlike game._input().
+func push_touch(down:bool,position:Vector2)->void:
+	var e:=InputEventScreenTouch.new();e.index=0;e.pressed=down;e.position=position;root.push_input(e)
+func push_drag(position:Vector2,relative:Vector2)->void:
+	var e:=InputEventScreenDrag.new();e.index=0;e.position=position;e.relative=relative;root.push_input(e)
 func row_width(row:Control)->float:
 	var total:=0.0;var visible:=0
 	for child in row.get_children():
@@ -121,6 +126,22 @@ func run()->void:
 	expect(hud._drawer.get_combined_minimum_size().x<=hud._drawer.size.x+0.5,"nothing widens the trades drawer past the screen (%.0f of %.0f)"%[hud._drawer.get_combined_minimum_size().x,hud._drawer.size.x])
 	expect(hud._drawer.position.x>=0.0 and hud._drawer.position.x+hud._drawer.size.x<=root.size.x+0.5,"the trades drawer stays on screen")
 	expect(hud._drawer.position.y+hud._drawer.size.y<=hud._dock.position.y+0.5,"the drawer ends above the dock")
+	# --- A drag scrolls the panel from anywhere, including on top of a card.
+	var card:Button=hud._role_grid.get_child(0)
+	var grip:Vector2=card.get_global_rect().get_center()
+	var scrolled_from:int=hud._drawer_scroll.scroll_vertical
+	var queued_before:int=game.sim.training.size()
+	push_touch(true,grip)
+	# One short drag that stays inside the card: the card itself must react.
+	push_drag(grip-Vector2(0,10),Vector2(0,-10))
+	await frames(1)
+	expect(card.dragged,"the card records that the press was a scroll")
+	for step in range(5):
+		push_drag(grip-Vector2(0,10.0+12.0*(step+1)),Vector2(0,-12))
+	push_touch(false,grip-Vector2(0,70))
+	await frames(2)
+	expect(hud._drawer_scroll.scroll_vertical>scrolled_from,"a drag on a card scrolls the drawer (%d to %d)"%[scrolled_from,hud._drawer_scroll.scroll_vertical])
+	expect(game.sim.training.size()==queued_before,"scrolling over a card trains nobody")
 	hud.close_panels();await frames(2)
 	# --- The stone deposit is visible and highlighted while placing a quarry.
 	var rocks:Node3D=game.world.get_node_or_null("StoneDeposit")
