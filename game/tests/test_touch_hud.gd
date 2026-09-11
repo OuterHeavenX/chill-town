@@ -62,6 +62,15 @@ func run()->void:
 	expect(game.world.target_focus!=focus_before,"dragging two fingers pans the camera")
 	touch(0,false,Vector2(170,320));touch(1,false,Vector2(270,410))
 	expect(game.touch_points.is_empty() and game.pinch_distance==0.0,"lifting both fingers resets the gesture")
+	# --- The stone deposit is visible and highlighted while placing a quarry.
+	var rocks:Node3D=game.world.get_node_or_null("StoneDeposit")
+	expect(rocks!=null and rocks.get_child_count()==game.sim.stone_deposits.size(),"one granite outcrop per deposit cell")
+	game._select_build("quarry")
+	expect(game.world.deposit_highlight.get_child_count()>0,"quarry tool highlights the deposit cells")
+	expect(game.sim.can_place("quarry",Vector2i(10,17)).is_empty(),"a quarry fits just north of the deposit")
+	expect(not game.sim.can_place("quarry",Vector2i(4,4)).is_empty(),"a quarry away from the deposit is refused")
+	game._select_build("")
+	expect(game.world.deposit_highlight.get_child_count()==0,"leaving the quarry tool clears the highlight")
 	# --- Desktop width returns to the full layout.
 	root.size=Vector2i(1280,800);await frames(4)
 	expect(hud._help_dock_button.visible and hud._resource_buttons.population.visible,"desktop layout restores every control")

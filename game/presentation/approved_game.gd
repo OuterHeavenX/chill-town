@@ -107,6 +107,7 @@ func _select_build(kind: String) -> void:
 	selected_id = -1
 	world.set_selected(-1)
 	world.clear_preview()
+	world.set_deposit_highlight(kind == "quarry")
 	road_path.clear()
 	hud.set_road_tool(kind)
 	if kind == "road":
@@ -459,6 +460,8 @@ func _refresh_placement_banner() -> void:
 			hud.set_mode(tr("Estradas · {tiles} trechos · {stone} pedra · solte para construir · Esc termina").format({"tiles":road_path.size(),"stone":cost}))
 	elif build_kind == "remove_road":
 		hud.set_mode(tr("Estradas · toque em um trecho para apagar · Esc termina"))
+	elif build_kind == "quarry":
+		hud.set_mode(tr("Pedreira: toque ao lado da jazida de pedra destacada. Esc cancela."))
 	elif not build_kind.is_empty():
 		hud.set_mode(tr("Construir {name}: toque no terreno. Esc cancela.").format({"name":sim.definition(build_kind).name}))
 	else:

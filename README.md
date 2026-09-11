@@ -98,7 +98,9 @@ in the code are Portuguese keys translated through `game/locale/en.json`.
 - The worker "working" animation now matches translated status text, not only Portuguese.
 - Touch controls: on-screen camera pad (zoom, rotate, recenter), two-finger pan, and a
   phone layout for the HUD; the loading screen no longer nags on phone-sized windows.
-- Added a headless test for the touch HUD (`game/tests/test_touch_hud.gd`).
+- The stone deposit is now visible as granite outcrops south of the main building, and its
+  cells are highlighted while the quarry tool is active (it was invisible before).
+- Added a headless test for the touch HUD and the deposit markers (`game/tests/test_touch_hud.gd`).
 - Added a GitHub Actions workflow that runs the simulation tests, exports the web
   build with Godot 4.7.2, and deploys it to GitHub Pages.
 

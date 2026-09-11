@@ -6,6 +6,7 @@ const Terrain = preload("res://presentation/approved_terrain.gd")
 const Basic = preload("res://presentation/model_factory.gd")
 const Materials=preload("res://presentation/approved_materials.gd")
 const CropGrowth=preload("res://presentation/approved_crop_growth.gd")
+const EnvModels=preload("res://presentation/approved_environment.gd")
 const CELL := 2.5
 var sim: RefCounted
 var camera: Camera3D
@@ -22,6 +23,8 @@ var people := {}
 var selection: Node3D
 var preview: Node3D
 var road_preview: Node3D
+var deposit: Node3D
+var deposit_highlight: Node3D
 var selected_id := -1
 var preview_key := ""
 var road_key := ""
@@ -38,6 +41,8 @@ func setup(village: RefCounted) -> void:
  selection = Node3D.new();add_child(selection)
  preview = Node3D.new();add_child(preview)
  road_preview = Node3D.new();add_child(road_preview)
+ deposit_highlight = Node3D.new();deposit_highlight.name="StoneDepositHighlight";add_child(deposit_highlight)
+ _build_deposit()
  _camera_update(1.0)
  sync(0.0)
 
@@ -104,6 +109,7 @@ static func _state_is_working(state: String) -> bool:
 func sync(delta: float) -> void:
  if camera==null:return
  _camera_update(delta)
+ _refresh_deposit_visibility()
  elapsed += delta*visual_speed if not sim.paused else 0.0
  terrain_elapsed += delta
  if terrain_elapsed>=0.2:
@@ -304,6 +310,34 @@ func _entrance(parent:Node3D,cell:Vector2i,color:Color) -> void:
  # The arrow points from the road into the front door, not to a unit.
  for sign_value in [-1,1]:Basic.beam(parent,center+Vector3(0,0,-0.55),center+Vector3(sign_value*0.35,0,0),0.08,color)
  Basic.beam(parent,center+Vector3(0,0,0.4),center+Vector3(0,0,-0.55),0.08,color)
+## The stone deposit is simulation data; without a visible marker players cannot
+## tell where a quarry may go. Low granite outcrops mark each deposit cell.
+func _build_deposit() -> void:
+ deposit = Node3D.new();deposit.name="StoneDeposit";add_child(deposit)
+ var index:=0
+ for cell:Vector2i in sim.stone_deposits:
+  var rock:Node3D=EnvModels.rock(index+2)
+  var x:=cell.x*CELL+(0.35 if index%2==0 else -0.3);var z:=cell.y*CELL+(0.25 if index%3==0 else -0.35)
+  rock.position=Vector3(x,terrain.support_height(x,z)-0.06,z)
+  rock.rotation.y=index*1.9
+  rock.scale=Vector3(0.62,0.42,0.62)
+  rock.set_meta("deposit_cell",cell)
+  deposit.add_child(rock)
+  index+=1
+## Rocks under a built quarry stay hidden so the model reads cleanly.
+func _refresh_deposit_visibility() -> void:
+ if deposit==null:return
+ for rock:Node3D in deposit.get_children():
+  var cell:Vector2i=rock.get_meta("deposit_cell")
+  var covered:=false
+  for b:Dictionary in sim.buildings:
+   if b.stage!="cancelled" and Rect2i(b.cell,sim.footprint_size(b.kind)).has_point(cell):covered=true;break
+  rock.visible=not covered
+func set_deposit_highlight(on:bool) -> void:
+ _clear(deposit_highlight)
+ if not on:return
+ for cell:Vector2i in sim.stone_deposits:
+  _outline(deposit_highlight,Vector3(cell.x*CELL,0.05,cell.y*CELL),CELL*0.5-0.08,Color("f3d181"))
 func set_selected(id:int) -> void:
  selected_id=id;_clear(selection)
  for b:Dictionary in sim.buildings:
