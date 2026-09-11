@@ -5,7 +5,13 @@ const Game=preload("res://presentation/approved_game.gd")
 var game:Node
 var checks:=0
 var failures:Array[String]=[]
-func _initialize()->void:call_deferred("run")
+func _initialize()->void:
+	# A compile or runtime error aborts run() and would leave the headless tree
+	# spinning until the CI job times out; fail loudly after three minutes.
+	create_timer(180.0).timeout.connect(func():
+		printerr("TIMEOUT: test_touch_hud did not reach its result line")
+		quit(1))
+	call_deferred("run")
 func expect(value:bool,message:String)->void:
 	checks+=1
 	if not value:failures.append(message);printerr("FAIL ",message)
@@ -103,6 +109,19 @@ func run()->void:
 	expect(hud._menu.visible and hud._menu.position.x>=0.0 and hud._menu.position.x+hud._menu.size.x<=root.size.x+0.5,"menu fits the phone width")
 	expect(hud._menu.position.y+hud._menu.size.y<=hud._dock.position.y+0.5,"menu ends above the dock")
 	hud.close_panels()
+	# --- Drawers fit the phone width instead of clipping their cards.
+	hud._toggle_drawer("build");await frames(4)
+	expect(hud._build_grid.columns==2,"build drawer uses two columns on a phone")
+	expect(hud._build_grid.get_combined_minimum_size().x<=hud._drawer_scroll.size.x+0.5,"build cards fit the drawer (%.0f of %.0f)"%[hud._build_grid.get_combined_minimum_size().x,hud._drawer_scroll.size.x])
+	expect(hud._drawer.get_combined_minimum_size().x<=hud._drawer.size.x+0.5,"nothing widens the build drawer past the screen (%.0f of %.0f)"%[hud._drawer.get_combined_minimum_size().x,hud._drawer.size.x])
+	hud._toggle_drawer("training");await frames(4)
+	expect(hud._role_grid.columns==2,"trades drawer uses two columns on a phone")
+	expect(hud._role_grid.get_combined_minimum_size().x<=hud._drawer_scroll.size.x+0.5,"role cards fit the drawer (%.0f of %.0f)"%[hud._role_grid.get_combined_minimum_size().x,hud._drawer_scroll.size.x])
+	expect(hud._drawer_content.get_child(3)==hud._role_grid,"the quantity row stays above the role cards on a phone")
+	expect(hud._drawer.get_combined_minimum_size().x<=hud._drawer.size.x+0.5,"nothing widens the trades drawer past the screen (%.0f of %.0f)"%[hud._drawer.get_combined_minimum_size().x,hud._drawer.size.x])
+	expect(hud._drawer.position.x>=0.0 and hud._drawer.position.x+hud._drawer.size.x<=root.size.x+0.5,"the trades drawer stays on screen")
+	expect(hud._drawer.position.y+hud._drawer.size.y<=hud._dock.position.y+0.5,"the drawer ends above the dock")
+	hud.close_panels();await frames(2)
 	# --- The stone deposit is visible and highlighted while placing a quarry.
 	var rocks:Node3D=game.world.get_node_or_null("StoneDeposit")
 	expect(rocks!=null and rocks.get_child_count()==game.sim.stone_deposits.size(),"one granite outcrop per deposit cell")

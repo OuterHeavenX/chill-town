@@ -1530,25 +1530,51 @@ func _layout() -> void:
 	if is_instance_valid(_tutorial):
 		_tutorial.position = Vector2(left_edge,top_edge+top_height+88)
 		_tutorial.size = Vector2(side_width,0)
+	_drawer_title.add_theme_font_size_override("font_size",20 if phone else 26)
+	_drawer_close.custom_minimum_size.x = 64.0 if phone else 78.0
 	var drawer_height := clampf(bottom_edge-74.0-content_top,150.0,440.0)
 	var drawer_width := minf(1160.0,inner_width)
 	_drawer.position = Vector2(left_edge+(inner_width-drawer_width)*0.5,bottom_edge-74.0-drawer_height)
 	_drawer.size = Vector2(drawer_width,drawer_height)
+	# Build cards carry a 100 px thumbnail, so three columns cannot fit a phone:
+	# the grid would push past the drawer and clip the right-hand card.
 	if is_instance_valid(_build_grid):
-		_build_grid.columns = 3 if phone else 4
+		_build_grid.columns = (1 if inner_width < 300.0 else 2) if phone else 4
+		for card: Button in _build_grid.get_children():
+			card.custom_minimum_size.y = 150.0 if phone else 168.0
+			var card_box: Node = card.get_child(0).get_child(0)
+			var art: Node = card_box.get_child(0)
+			if art is Control:
+				(art as Control).custom_minimum_size = Vector2(80,58) if phone else Vector2(100,76)
+			var card_title: Label = card_box.get_child(1)
+			card_title.add_theme_font_size_override("font_size",16 if phone else 19)
 	if is_instance_valid(_role_grid):
-		_role_grid.columns = 3 if compact else 4
-		# On short screens, the primary profession actions must be visible
-		# immediately; quantity and price details remain in the same scroll area.
-		_drawer_content.move_child(_role_grid,0 if compact else 3)
+		_role_grid.columns = (1 if inner_width < 300.0 else 2) if phone else (3 if compact else 4)
+		# On a short landscape screen the professions come first so they are
+		# visible without scrolling. A tall phone instead keeps the natural
+		# order, so the quantity selector is read before a Train button is hit.
+		_drawer_content.move_child(_role_grid,0 if (compact and not phone) else 3)
 		for card: Button in _role_grid.get_children():
 			card.custom_minimum_size.y = 64 if compact else 96
 			for child in card.get_child(0).get_children():
 				if child is TextureRect:
-					child.custom_minimum_size = Vector2(36,48) if compact else Vector2(54,80)
+					child.custom_minimum_size = (Vector2(30,42) if phone else Vector2(36,48)) if compact else Vector2(54,80)
 		for role in _role_count_labels:
-			var content: Node = _role_count_labels[role].get_parent()
+			var name_label: Label = _role_count_labels[role]
+			name_label.add_theme_font_size_override("font_size",15 if phone else 17)
+			# A narrow card wraps "Stonecutter · 0" instead of cutting it off.
+			name_label.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART if phone else TextServer.AUTOWRAP_OFF
+			var content: Node = name_label.get_parent()
 			content.get_child(1).visible = not compact
+		# "8 residents available · Quantity · 1 3 5" is wider than a phone, and a
+		# PanelContainer grows to fit its content, so trim the row instead.
+		if is_instance_valid(_quantity_caption):
+			_quantity_caption.visible = not phone
+		if is_instance_valid(_resident_label):
+			_resident_label.add_theme_font_size_override("font_size",14 if phone else 16)
+			for child in _resident_label.get_parent().get_children():
+				if child is Button:
+					(child as Button).custom_minimum_size.x = 34.0 if phone else 44.0
 		_refresh_school_context()
 	# Phones: side panels span the full width and stop above the dock.
 	var panel_bottom := bottom_edge-62.0-8.0
