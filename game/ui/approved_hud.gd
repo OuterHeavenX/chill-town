@@ -20,6 +20,8 @@ const BRONZE := Color("c59a50")
 const WINE := Color("e1bd71")
 const DANGER := Color("eeaa89")
 const SUCCESS := Color("b8d292")
+## Reading order for the village report: the core first, then each chain.
+const REPORT_ORDER := ["hall", "training", "house", "inn", "store", "lumber", "sawmill", "quarry", "farm", "mill", "bakery", "vineyard", "winery", "workshop", "barracks"]
 const BUILD_ORDER := ["lumber", "sawmill", "quarry", "farm", "mill", "bakery", "inn", "house", "vineyard", "winery", "store", "workshop", "barracks", "training"]
 const ROLE_NAMES := {"resident":"Morador", "builder":"Construtor", "servant":"Servente", "instructor":"Instrutor", "lumberjack":"Lenhador", "stonecutter":"Canteiro", "farmer":"Horticultor", "vintner":"Vinhateiro", "miller":"Moleiro", "baker":"Padeiro", "recruit":"Recruta"}
 const ROLE_DETAILS := {"builder":"Ergue as obras da vila", "servant":"Leva materiais e produção", "instructor":"Forma novos profissionais", "lumberjack":"Corta árvores e serra troncos", "stonecutter":"Extrai pedra", "farmer":"Cultiva alimentos e cereal", "vintner":"Cultiva uvas e produz vinho", "miller":"Moí cereal", "baker":"Asse pães", "recruit":"Caminha até o quartel"}
@@ -231,6 +233,14 @@ var _menu: PanelContainer
 var _menu_scroll: ScrollContainer
 var _restart_confirm: VBoxContainer
 var _help: PanelContainer
+var _report: PanelContainer
+var _report_scroll: ScrollContainer
+var _report_body: VBoxContainer
+var _report_title: Label
+var _report_close: Button
+var _report_summary: Label
+var _report_button: Button
+var _report_signature := ""
 var _inspector: PanelContainer
 var _inspector_scroll: ScrollContainer
 var _inspected_id := -1
@@ -311,6 +321,7 @@ func setup(sim: RefCounted) -> void:
 	_make_inspector()
 	_make_menu()
 	_make_help()
+	_make_report()
 	_make_mode_and_toast()
 	get_viewport().size_changed.connect(_layout)
 	_layout()
@@ -910,6 +921,7 @@ func _make_menu() -> void:
 		close_panels()
 		command_requested.emit("load_mission", {"id": "tsk-01"})
 	)
+	_report_button = _button(content,tr("Construções da vila"),_show_report)
 	_menu_help_button = _button(content,tr("Como jogar"),_show_help)
 	_code_button = _button(content,tr("Código e artes do jogo ↗"),func(): OS.shell_open("https://github.com/OuterHeavenX/chill-town"))
 	_restart_button = _button(content,tr("Reiniciar partida"),_toggle_restart_confirmation)
@@ -957,6 +969,112 @@ func _make_help() -> void:
 	_help_body = _vbox(scroll,12)
 	_help_body.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	_fill_help(_help_body)
+
+## A standing-stock report: how many of each building the village has, and what
+## each one actually gives back. Opened from the menu so the dock stays small.
+func _make_report() -> void:
+	_report = _panel(_root,true,18)
+	_report.name = "VillageReport"
+	_report.visible = false
+	var box := _vbox(_report,10)
+	var head := _hbox(box)
+	var titles := _vbox(head,1)
+	titles.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	_report_title = _label(titles,tr("Construções da vila"),24,WINE)
+	_report_summary = _label(titles,"",14,MUTED,true)
+	_report_close = _button(head,tr("Fechar"),close_panels,78)
+	_report_scroll = ScrollContainer.new()
+	_report_scroll.horizontal_scroll_mode = ScrollContainer.SCROLL_MODE_DISABLED
+	_report_scroll.size_flags_vertical = Control.SIZE_EXPAND_FILL
+	box.add_child(_report_scroll)
+	_report_body = _vbox(_report_scroll,10)
+	_report_body.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+
+func _show_report() -> void:
+	close_panels()
+	_report_signature = ""
+	_fill_report()
+	_report.show()
+	_report_scroll.scroll_vertical = 0
+	_layout()
+
+## Completed and in-progress buildings per kind, cancelled ones ignored.
+func _building_counts() -> Dictionary:
+	var counts := {}
+	if _sim == null:
+		return counts
+	for building in _array(_sim.get("buildings")):
+		var kind := str(building.get("kind",""))
+		var stage := str(building.get("stage",""))
+		if kind.is_empty() or stage == "cancelled":
+			continue
+		if not counts.has(kind):
+			counts[kind] = {"complete":0,"working":0}
+		if stage == "complete":
+			counts[kind].complete += 1
+		else:
+			counts[kind].working += 1
+	return counts
+
+func _fill_report() -> void:
+	if not is_instance_valid(_report_body) or _sim == null:
+		return
+	var counts := _building_counts()
+	var signature := ""
+	var standing: Array[String] = []
+	var missing: Array[String] = []
+	var total := 0
+	for kind in REPORT_ORDER:
+		if _definition(str(kind)).is_empty():
+			continue
+		if counts.has(kind):
+			standing.append(str(kind))
+			total += int(counts[kind].complete)+int(counts[kind].working)
+			signature += "%s:%d/%d;" % [kind,int(counts[kind].complete),int(counts[kind].working)]
+		else:
+			missing.append(str(kind))
+	if signature == _report_signature:
+		return
+	_report_signature = signature
+	_clear_children(_report_body)
+	_report_summary.text = tr("{kinds} tipos em pé · {total} construções no total").format({"kinds":standing.size(),"total":total})
+	if standing.is_empty():
+		_label(_report_body,tr("Nada construído ainda. Abra Construir para começar."),16,MUTED,true)
+	else:
+		_label(_report_body,tr("Em pé na sua vila"),19,WINE)
+		for kind in standing:
+			_report_row(kind,_dictionary(counts[kind]))
+	if not missing.is_empty():
+		_label(_report_body,tr("Ainda não construídas"),19,WINE)
+		for kind in missing:
+			_report_row(kind,{})
+
+func _report_row(kind: String, count: Dictionary) -> void:
+	var definition := _definition(kind)
+	var card := _panel(_report_body,false,10)
+	var row := _hbox(card,10)
+	_glyph(row,kind,34)
+	var column := _vbox(row,3)
+	column.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	var heading := _hbox(column,6)
+	var name_label := _label(heading,str(definition.get("name",kind)),18)
+	name_label.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	name_label.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+	var complete := int(count.get("complete",0))
+	var working := int(count.get("working",0))
+	var tally := tr("{count} em pé").format({"count":complete}) if complete > 0 else tr("nenhuma")
+	if working > 0:
+		tally += " · "+tr("{count} em obras").format({"count":working})
+	_label(heading,tally,15,SUCCESS if complete > 0 else MUTED)
+	var offer := _label(column,str(definition.get("description","")),14,MUTED,true)
+	offer.max_lines_visible = 5
+	var footnote := _cost_text(_dictionary(definition.get("cost",{})))
+	var profession := str(definition.get("profession",""))
+	if not profession.is_empty():
+		var worker := tr("Precisa de {role}").format({"role":tr(str(ROLE_NAMES.get(profession,profession))).to_lower()})
+		footnote = worker if footnote.is_empty() else footnote+" · "+worker
+	if not footnote.is_empty():
+		_label(column,footnote,13,BRONZE,true)
 
 func _show_help() -> void:
 	close_panels()
@@ -1069,6 +1187,13 @@ func _retranslate() -> void:
 		_restart_yes.text = tr("Reiniciar")
 		_restart_back.text = tr("Voltar")
 	_refresh_language_buttons()
+	if is_instance_valid(_report_button):
+		_report_button.text = tr("Construções da vila")
+	if is_instance_valid(_report_title):
+		_report_title.text = tr("Construções da vila")
+		_report_close.text = tr("Fechar")
+		_report_signature = ""
+		_fill_report()
 	if is_instance_valid(_help_title):
 		_help_title.text = tr("Bem-vindo ao vale")
 		_help_close.text = tr("Fechar")
@@ -1144,7 +1269,7 @@ func show_message(text: String) -> void:
 
 func close_panels() -> void:
 	entrance_highlighted.emit(Vector2i(-1,-1))
-	for panel in [_drawer,_menu,_help,_inspector]:
+	for panel in [_drawer,_menu,_help,_report,_inspector]:
 		if is_instance_valid(panel):
 			panel.hide()
 	if is_instance_valid(_restart_confirm):
@@ -1190,6 +1315,8 @@ func _focus_village() -> void:
 	focus_requested.emit(Vector2i(8,13))
 
 func refresh() -> void:
+	if is_instance_valid(_report) and _report.visible:
+		_fill_report()
 	if is_instance_valid(_root) and _sim != null:
 		var army_ready := _has_completed("barracks")
 		if army_ready != _army_ready:
@@ -1632,6 +1759,8 @@ func _layout() -> void:
 	var help_height := minf(570.0,bottom_edge-top_edge-10.0)
 	_help.position = Vector2(left_edge+(inner_width-help_width)*0.5,top_edge+(bottom_edge-top_edge-help_height)*0.5)
 	_help.size = Vector2(help_width,help_height)
+	_report.position = _help.position
+	_report.size = _help.size
 	var mode_width := minf(665.0,inner_width)
 	_mode_panel.position = Vector2(left_edge+(inner_width-mode_width)*0.5,bottom_edge-132.0)
 	_mode_panel.size = Vector2(mode_width,56)

@@ -57,6 +57,8 @@ buildings, train professions, and expand the economy.
 - Grain goes through mill and bakery to loaves; workers eat at the inn.
 - Barracks take recruits plus axes or bows. Army mode sets a company objective.
 - Menu → first lesson locks the farm/wine chain until school, inn, woodcutter and quarry exist.
+- Menu → Village buildings lists every structure, how many you have standing or under
+  way, what each one produces, its cost and the worker it needs.
 - Manual saves and autosaves are local to each browser and device.
 
 ## Develop
@@ -115,6 +117,8 @@ in the code are Portuguese keys translated through `game/locale/en.json`.
   cells are highlighted while the quarry tool is active (it was invisible before).
 - Woodcutters pick the nearest tree they can actually stand beside. They used to take the
   closest trunk and stall for good when it was walled in by the middle of a grove.
+- Added a village buildings report (Menu → Village buildings): counts per structure and
+  what each one offers, so you do not have to tap buildings one by one to find out.
 - Added a headless test for the touch HUD and the deposit markers (`game/tests/test_touch_hud.gd`).
 - Added a GitHub Actions workflow that runs the simulation tests, exports the web
   build with Godot 4.7.2, and deploys it to GitHub Pages.

@@ -143,6 +143,22 @@ func run()->void:
 	expect(hud._drawer_scroll.scroll_vertical>scrolled_from,"a drag on a card scrolls the drawer (%d to %d)"%[scrolled_from,hud._drawer_scroll.scroll_vertical])
 	expect(game.sim.training.size()==queued_before,"scrolling over a card trains nobody")
 	hud.close_panels();await frames(2)
+	# --- The village report lists every building kind with its count and use.
+	hud._show_report();await frames(4)
+	expect(hud._report.visible,"the village report opens")
+	var counts:Dictionary=hud._building_counts()
+	expect(int(counts.hall.complete)==1 and int(counts.training.complete)==1,"the report counts the starting buildings")
+	expect(not counts.has("barracks"),"a kind with nothing built is absent from the counts")
+	var rows:=0
+	for child in hud._report_body.get_children():
+		if child is PanelContainer:rows+=1
+	expect(rows==hud.REPORT_ORDER.size(),"one row per building kind (%d of %d)"%[rows,hud.REPORT_ORDER.size()])
+	expect(hud._report.position.x>=0.0 and hud._report.position.x+hud._report.size.x<=root.size.x+0.5,"the report fits the phone width")
+	expect(hud._report.position.y+hud._report.size.y<=root.size.y+0.5,"the report fits the phone height")
+	expect(hud._report.get_combined_minimum_size().x<=hud._report.size.x+0.5,"nothing widens the report past the screen")
+	expect(hud.blocks_pointer(hud._report.position+hud._report.size*0.5),"the report blocks taps reaching the world")
+	hud.close_panels();await frames(2)
+	expect(not hud._report.visible,"closing the panels hides the report")
 	# --- The stone deposit is visible and highlighted while placing a quarry.
 	var rocks:Node3D=game.world.get_node_or_null("StoneDeposit")
 	expect(rocks!=null and rocks.get_child_count()==game.sim.stone_deposits.size(),"one granite outcrop per deposit cell")
