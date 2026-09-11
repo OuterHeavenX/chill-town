@@ -62,6 +62,14 @@ func run()->void:
 	expect(game.world.target_focus!=focus_before,"dragging two fingers pans the camera")
 	touch(0,false,Vector2(170,320));touch(1,false,Vector2(270,410))
 	expect(game.touch_points.is_empty() and game.pinch_distance==0.0,"lifting both fingers resets the gesture")
+	# --- Side panels stay fully on screen on a phone.
+	hud.inspect(game.sim.buildings[0]);await frames(2)
+	expect(hud._inspector.visible and hud._inspector.position.x>=0.0 and hud._inspector.position.x+hud._inspector.size.x<=root.size.x+0.5,"inspector fits the phone width")
+	expect(hud._inspector.position.y+hud._inspector.size.y<=hud._dock.position.y+0.5,"inspector ends above the dock")
+	hud._toggle_menu();await frames(2)
+	expect(hud._menu.visible and hud._menu.position.x>=0.0 and hud._menu.position.x+hud._menu.size.x<=root.size.x+0.5,"menu fits the phone width")
+	expect(hud._menu.position.y+hud._menu.size.y<=hud._dock.position.y+0.5,"menu ends above the dock")
+	hud.close_panels()
 	# --- The stone deposit is visible and highlighted while placing a quarry.
 	var rocks:Node3D=game.world.get_node_or_null("StoneDeposit")
 	expect(rocks!=null and rocks.get_child_count()==game.sim.stone_deposits.size(),"one granite outcrop per deposit cell")
