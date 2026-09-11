@@ -26,6 +26,7 @@ var application_paused := false
 var touch_points := {}
 var pinch_distance := 0.0
 var pinch_center := Vector2.ZERO
+var pinch_angle := 0.0
 var mute := false
 var audio_player: AudioStreamPlayer
 var event_signature := ""
@@ -57,8 +58,24 @@ func _ready() -> void:
 	hud.camera_requested.connect(_camera_command)
 	if DisplayServer.is_touchscreen_available():
 		hud.set_touch_mode(true)
+	_refresh_safe_area()
 	_setup_audio()
 	print("PLAYABLE_READY: Chill Town — 0.4.4")
+
+## The browser reports the notch and status-bar insets; the HUD lays itself out
+## inside them so no control ends up under system chrome.
+func _refresh_safe_area() -> void:
+	if hud == null:
+		return
+	var insets := Vector4.ZERO
+	if OS.has_feature("web"):
+		var raw: Variant = JavaScriptBridge.eval("window.chillTownSafeArea ? window.chillTownSafeArea.join(',') : ''",true)
+		if typeof(raw) == TYPE_STRING:
+			var parts := str(raw).split(",",false)
+			if parts.size() == 4:
+				insets = Vector4(float(parts[0]),float(parts[1]),float(parts[2]),float(parts[3]))
+	hud.set_safe_area(insets)
+
 
 func _configure_display() -> void:
 	# Web and mobile report framebuffer pixels; use the platform density so
@@ -67,6 +84,7 @@ func _configure_display() -> void:
 		var density := maxf(1.0,DisplayServer.screen_get_scale())
 		if not is_equal_approx(get_window().content_scale_factor,density):
 			get_window().content_scale_factor = density
+	_refresh_safe_area()
 
 func _process(delta: float) -> void:
 	if sim == null:
@@ -314,19 +332,33 @@ func _input(event: InputEvent) -> void:
 			touch_points.erase(event.index)
 		if touch_points.size() != 2:
 			pinch_distance = 0.0
-	# Two fingers: pinch to zoom and drag together to pan (also while drawing roads).
+			pinch_angle = 0.0
+	# Two fingers: pinch to zoom, twist to rotate and drag together to pan.
+	# Works while drawing roads too, so the camera never blocks a stroke.
 	if event is InputEventScreenDrag:
 		touch_points[event.index] = event.position
 		if touch_points.size() == 2:
-			var positions: Array = touch_points.values()
-			var distance: float = positions[0].distance_to(positions[1])
-			var center: Vector2 = (positions[0]+positions[1])*0.5
+			# Order by finger index so the twist angle cannot flip by a half turn.
+			var indices: Array = touch_points.keys()
+			indices.sort()
+			var first: Vector2 = touch_points[indices[0]]
+			var second: Vector2 = touch_points[indices[1]]
+			var span: Vector2 = second-first
+			var distance: float = span.length()
+			var center: Vector2 = (first+second)*0.5
+			var angle: float = span.angle()
 			if pinch_distance > 0.0:
 				world.zoom_by((pinch_distance-distance)*0.06)
 				if not hud.blocks_pointer(center):
 					world.pan_by(center-pinch_center)
+				# Increasing yaw turns the world clockwise on screen, which is
+				# also the direction of a clockwise twist, so the signs match.
+				var twist: float = wrapf(angle-pinch_angle,-PI,PI)
+				if absf(twist) > 0.015:
+					world.orbit(twist)
 			pinch_distance = distance
 			pinch_center = center
+			pinch_angle = angle
 			dragging = true
 
 func _write_save(path: String) -> bool:

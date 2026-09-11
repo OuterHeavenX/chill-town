@@ -34,7 +34,14 @@ func run()->void:
 	game.hud._dismiss_tutorial();game.hud._toast.hide();await frames(8)
 	var hud=game.hud
 	expect(hud._tabs.build.text=="Build" and hud._tabs.road.text=="Roads","dock labels are English")
-	expect(not hud._help_dock_button.visible,"phone layout hides the help dock button")
+	expect(hud._help_dock_button.visible,"phone dock keeps the help button")
+	expect(not hud._tabs.army.visible,"army stays hidden until the barracks is standing")
+	expect(hud._has_completed("hall") and not hud._has_completed("barracks"),"completed-building lookup reads the simulation")
+	# Once a barracks is standing the army button takes the help button's slot.
+	hud._army_ready = true;hud._layout();await frames(2)
+	expect(hud._tabs.army.visible and not hud._help_dock_button.visible,"army replaces help on a phone once available")
+	expect(row_width(hud._dock_row)<=hud._dock.size.x-16.0+0.5,"dock still fits with the army button (%.0f of %.0f)"%[row_width(hud._dock_row),hud._dock.size.x-16.0])
+	hud._army_ready = false;hud._layout();await frames(2)
 	expect(not hud._resource_buttons.population.visible and not hud._resource_buttons.trunks.visible and hud._resource_buttons.gold.visible,"phone layout keeps four counters")
 	expect(row_width(hud._dock_row)<=hud._dock.size.x-16.0+0.5,"dock buttons fit the phone width (%.0f of %.0f)"%[row_width(hud._dock_row),hud._dock.size.x-16.0])
 	expect(row_width(hud._top_row)<=hud._top.size.x-20.0+0.5,"top bar fits the phone width (%.0f of %.0f)"%[row_width(hud._top_row),hud._top.size.x-20.0])
@@ -62,6 +69,32 @@ func run()->void:
 	expect(game.world.target_focus!=focus_before,"dragging two fingers pans the camera")
 	touch(0,false,Vector2(170,320));touch(1,false,Vector2(270,410))
 	expect(game.touch_points.is_empty() and game.pinch_distance==0.0,"lifting both fingers resets the gesture")
+	# --- Notch and status-bar insets keep every panel clear of system chrome.
+	hud.set_safe_area(Vector4(47,0,34,0));await frames(2)
+	expect(hud._top.position.y>=47.0,"top bar clears the status bar inset")
+	expect(hud._dock.position.y+hud._dock.size.y<=root.size.y-34.0+0.5,"dock clears the home indicator inset")
+	expect(hud._camera_pad.position.y>=47.0 and hud._camera_pad.position.y+hud._camera_pad.size.y<=hud._dock.position.y+0.5,"camera pad stays between the insets")
+	hud.set_safe_area(Vector4.ZERO);await frames(2)
+	# Landscape with a notch on both sides, as iOS reports it.
+	root.size=Vector2i(844,390);hud.set_safe_area(Vector4(0,47,21,47));await frames(4)
+	expect(hud._top.position.x>=47.0 and hud._top.position.x+hud._top.size.x<=844.0-47.0+0.5,"top bar honours left and right insets")
+	expect(hud._camera_pad.position.x+hud._camera_pad.size.x<=844.0-47.0+0.5,"camera pad honours the right inset")
+	expect(row_width(hud._top_row)<=hud._top.size.x-20.0+0.5,"top bar contents fit between the notch insets")
+	root.size=Vector2i(390,664);hud.set_safe_area(Vector4.ZERO);await frames(4)
+	expect(hud._resource_buttons.gold.visible and not hud._resource_buttons.trunks.visible,"a phone keeps four counters when nothing is inset")
+	# --- Two fingers twisting rotate the view the same way they turn.
+	var twist_a := Vector2(120,430)
+	var twist_b := Vector2(240,430)
+	touch(0,true,twist_a);touch(1,true,twist_b)
+	drag(0,twist_a,Vector2.ZERO);drag(1,twist_b,Vector2.ZERO)
+	var yaw_start:float=game.world.target_yaw
+	var pivot:Vector2=(twist_a+twist_b)*0.5
+	var turned_a:Vector2=pivot+(twist_a-pivot).rotated(0.3)
+	var turned_b:Vector2=pivot+(twist_b-pivot).rotated(0.3)
+	drag(0,turned_a,turned_a-twist_a);drag(1,turned_b,turned_b-twist_b)
+	expect(game.world.target_yaw>yaw_start,"a clockwise twist turns the view clockwise")
+	touch(0,false,turned_a);touch(1,false,turned_b)
+	expect(game.pinch_angle==0.0,"lifting the fingers clears the twist angle")
 	# --- Side panels stay fully on screen on a phone.
 	hud.inspect(game.sim.buildings[0]);await frames(2)
 	expect(hud._inspector.visible and hud._inspector.position.x>=0.0 and hud._inspector.position.x+hud._inspector.size.x<=root.size.x+0.5,"inspector fits the phone width")

@@ -252,6 +252,8 @@ var _dock_row: HBoxContainer
 var _brand_glyph: Control
 var _camera_buttons: Dictionary = {}
 var _touch_mode := false
+var _safe_area := Vector4.ZERO   # top, right, bottom, left (CSS pixels)
+var _army_ready := false
 
 func setup(sim: RefCounted) -> void:
 	_sim = sim
@@ -504,6 +506,8 @@ func _make_dock() -> void:
 
 ## On-screen camera controls for touch screens: zoom, rotate and recenter.
 ## Shown once a touch is detected (or when a touchscreen is available).
+## Counters in the order they matter; the bar keeps as many as fit.
+const COUNTER_PRIORITY := ["wood","stone","food","gold","population","trunks","loaves"]
 const CAMERA_BUTTONS := [["zoom_in","+","Aproximar"],["zoom_out","\u2212","Afastar"],["orbit_left","","Girar a visão para a esquerda"],["orbit_right","","Girar a visão para a direita"],["focus","","Voltar ao centro da vila"]]
 
 func _make_camera_pad() -> void:
@@ -538,6 +542,22 @@ func set_touch_mode(on: bool) -> void:
 
 func is_touch_mode() -> bool:
 	return _touch_mode
+
+## Screen insets reported by the browser (notch, status bar, home indicator).
+## Every panel is laid out inside them so no control hides under system chrome.
+func set_safe_area(insets: Vector4) -> void:
+	if _safe_area.is_equal_approx(insets):
+		return
+	_safe_area = insets
+	_layout()
+
+func _has_completed(kind: String) -> bool:
+	if _sim == null:
+		return false
+	for building in _array(_sim.get("buildings")):
+		if str(building.get("kind","")) == kind and str(building.get("stage","")) == "complete":
+			return true
+	return false
 
 func _make_drawer() -> void:
 	_drawer = _panel(_root,true,16)
@@ -912,7 +932,7 @@ func _help_entries() -> Array:
 		[tr("Exército"),tr("Construa o quartel, forme recrutas e entregue machados ou arcos. Em Exército, clique no mapa para dar um objetivo à companhia.")],
 		[tr("Primeira lição"),tr("Menu → Missão: primeira lição trava a vinha e a horta até você ter escola, taverna, lenhador e pedreira.")],
 		[tr("Câmera e atalhos"),tr("Arraste o terreno para mover a câmera; a roda do mouse aproxima. Q/E giram a visão. R inicia estradas; Esc encerra a colocação. Vila retorna ao principal. Pausar permite planejar; 1×, 2× e 4× ajustam o ritmo.")],
-		[tr("Toque e gestos"),tr("Arraste com um dedo para mover a câmera; dois dedos aproximam ou afastam. Toque em um prédio para inspecioná-lo. Em Estradas, arraste com um dedo para traçar; use dois dedos para mover a câmera. Os botões de câmera giram a visão, aproximam e voltam à vila.")],
+		[tr("Toque e gestos"),tr("Arraste com um dedo para mover a câmera. Com dois dedos: afaste ou junte para aproximar, gire para virar a vista e arraste para deslocar. Toque em um prédio para inspecioná-lo. Em Estradas, arraste com um dedo para traçar e use dois dedos para a câmera. Os botões à direita giram a visão, aproximam e voltam à vila.")],
 		[tr("Guarde sua partida"),tr("Menu → Salvar preserva sua vila. Use Carregar para retomar. Reiniciar pede confirmação antes de começar de novo.")]
 	]
 
@@ -1130,6 +1150,11 @@ func _focus_village() -> void:
 	focus_requested.emit(Vector2i(8,13))
 
 func refresh() -> void:
+	if is_instance_valid(_root) and _sim != null:
+		var army_ready := _has_completed("barracks")
+		if army_ready != _army_ready:
+			_army_ready = army_ready
+			_queue_layout()
 	if not is_instance_valid(_root) or _sim == null:
 		return
 	var stock := _dictionary(_sim.get("stock"))
@@ -1423,18 +1448,37 @@ func _layout() -> void:
 	var phone := width < 700.0
 	var margin := 8.0 if phone else (12.0 if compact else 18.0)
 	var top_height := 64.0 if phone else (65.0 if compact else 73.0)
-	_top.position = Vector2(margin,margin)
-	_top.size = Vector2(width-margin*2,top_height)
+	# Lay every panel out inside the safe area so nothing hides under the
+	# status bar, a notch or the home indicator.
+	var left_edge := _safe_area.w+margin
+	var right_edge := width-_safe_area.y-margin
+	var top_edge := _safe_area.x+margin
+	var bottom_edge := height-_safe_area.z-margin
+	var inner_width := maxf(120.0,right_edge-left_edge)
+	var content_top := top_edge+top_height+12.0
+	_top.position = Vector2(left_edge,top_edge)
+	_top.size = Vector2(inner_width,top_height)
 	_brand_box.custom_minimum_size.x = 145.0 if compact else 182.0
-	_brand_box.visible = width >= 900.0
+	_brand_box.visible = inner_width >= 900.0
 	_brand_glyph.visible = not phone
 	_top_row.add_theme_constant_override("separation",5 if phone else 9)
 	_dock_row.add_theme_constant_override("separation",4 if phone else 7)
 	_brand.add_theme_font_size_override("font_size",24 if compact else 28)
+	# Show as many counters as the bar can actually hold, most useful first, so
+	# a narrow phone or a notch inset never pushes the Menu button off screen.
+	var counter_width := 62.0 if phone else (73.0 if compact else 86.0)
+	var counter_gap := 5.0 if phone else 9.0
+	var counter_budget := inner_width-20.0-(54.0 if phone else 66.0)-counter_gap
+	if _brand_box.visible:
+		counter_budget -= _brand_box.custom_minimum_size.x+counter_gap
+	if _brand_glyph.visible:
+		counter_budget -= 38.0+counter_gap
+	var counter_limit: int = clampi(floori((counter_budget+counter_gap)/(counter_width+counter_gap)),1,COUNTER_PRIORITY.size())
+	var shown_counters: Array = COUNTER_PRIORITY.slice(0,counter_limit)
 	for item in _resource_buttons:
 		var button: Button = _resource_buttons[item]
-		button.custom_minimum_size.x = 62.0 if phone else (73.0 if compact else 86.0)
-		button.visible = not phone or item in ["wood","stone","food","gold"]
+		button.custom_minimum_size.x = counter_width
+		button.visible = shown_counters.has(item)
 		var value: Label = _resource_values[item]
 		value.add_theme_font_size_override("font_size",14 if phone else (17 if compact else 20))
 		_resource_captions[item].visible = not compact
@@ -1444,47 +1488,51 @@ func _layout() -> void:
 		_menu_button.add_theme_font_size_override("font_size",14)
 	else:
 		_menu_button.remove_theme_font_size_override("font_size")
-	_dock.position = Vector2(margin,height-margin-62)
-	_dock.size = Vector2(width-margin*2,62)
+	_dock.position = Vector2(left_edge,bottom_edge-62)
+	_dock.size = Vector2(inner_width,62)
 	_tabs["build"].custom_minimum_size.x = 0.0 if phone else (116.0 if compact else 160.0)
 	_tabs["road"].custom_minimum_size.x = 0.0 if phone else (116.0 if compact else 160.0)
 	_tabs["training"].custom_minimum_size.x = 0.0 if phone else (91.0 if compact else 122.0)
+	# Phones only have room for one of Army and Help; Army appears once the
+	# barracks is standing, and Help stays reachable from the menu.
+	var army_visible := inner_width >= 980.0 or (phone and _army_ready)
 	if _tabs.has("army"):
-		_tabs["army"].custom_minimum_size.x = 88.0 if compact else 110.0
-		_tabs["army"].visible = width >= 980.0
+		_tabs["army"].custom_minimum_size.x = 0.0 if phone else (88.0 if compact else 110.0)
+		_tabs["army"].visible = army_visible
 	_tabs["objectives"].custom_minimum_size.x = 102.0 if compact else 122.0
-	_tabs["objectives"].visible = width >= 960.0
-	_village_focus.visible = width >= 860.0
+	_tabs["objectives"].visible = inner_width >= 960.0
+	_village_focus.visible = inner_width >= 860.0
 	_village_focus.custom_minimum_size.x = 57.0 if compact else 70.0
 	_pause.custom_minimum_size.x = 0.0 if phone else (76.0 if compact else 88.0)
 	_speed_group.visible = not compact
 	_speed_cycle.visible = compact
 	_speed_cycle.custom_minimum_size.x = 44.0 if phone else 48.0
-	_help_dock_button.visible = not phone
-	for dock_button: Button in [_tabs["build"],_tabs["road"],_tabs["training"],_pause,_speed_cycle]:
+	_help_dock_button.visible = (not phone) or (not army_visible and inner_width >= 360.0)
+	_help_dock_button.custom_minimum_size.x = 40.0 if phone else 44.0
+	for dock_button: Button in [_tabs["build"],_tabs["road"],_tabs["training"],_tabs["army"],_pause,_speed_cycle,_help_dock_button]:
 		if phone:
 			dock_button.add_theme_font_size_override("font_size",13)
 		else:
 			dock_button.remove_theme_font_size_override("font_size")
 	if is_instance_valid(_camera_pad):
 		var pad_height := maxf(48.0*CAMERA_BUTTONS.size()+5.0*(CAMERA_BUTTONS.size()-1)+12.0,_camera_pad.get_combined_minimum_size().y)
-		var pad_y := height-margin-62-8-pad_height
-		_camera_pad.position = Vector2(width-margin-60,maxf(margin+top_height+12,pad_y))
+		var pad_y := bottom_edge-62.0-8.0-pad_height
+		_camera_pad.position = Vector2(right_edge-60.0,maxf(content_top,pad_y))
 		_camera_pad.size = Vector2(60,pad_height)
 		_camera_pad.visible = _touch_mode
 	if compact and not _was_compact:
 		_objectives_open = false
 		_objective_details.hide()
 	_was_compact = compact
-	var side_width := minf(285.0 if compact else 302.0,width-margin*2)
-	_objectives_panel.position = Vector2(margin,margin+top_height+12)
+	var side_width := minf(285.0 if compact else 302.0,inner_width)
+	_objectives_panel.position = Vector2(left_edge,content_top)
 	_objectives_panel.size = Vector2(side_width,0)
 	if is_instance_valid(_tutorial):
-		_tutorial.position = Vector2(margin,margin+top_height+88)
+		_tutorial.position = Vector2(left_edge,top_edge+top_height+88)
 		_tutorial.size = Vector2(side_width,0)
-	var drawer_height := minf(440.0,maxf(150.0,height-top_height-margin*3-79.0))
-	var drawer_width := minf(1160.0,width-margin*2)
-	_drawer.position = Vector2((width-drawer_width)*0.5,height-margin-74-drawer_height)
+	var drawer_height := clampf(bottom_edge-74.0-content_top,150.0,440.0)
+	var drawer_width := minf(1160.0,inner_width)
+	_drawer.position = Vector2(left_edge+(inner_width-drawer_width)*0.5,bottom_edge-74.0-drawer_height)
 	_drawer.size = Vector2(drawer_width,drawer_height)
 	if is_instance_valid(_build_grid):
 		_build_grid.columns = 3 if phone else 4
@@ -1503,24 +1551,24 @@ func _layout() -> void:
 			content.get_child(1).visible = not compact
 		_refresh_school_context()
 	# Phones: side panels span the full width and stop above the dock.
-	var panel_bottom := height-margin-62-8
-	var inspector_width := (width-margin*2) if phone else (308.0 if compact else 338.0)
-	_inspector.position = Vector2(width-margin-inspector_width,margin+top_height+12)
+	var panel_bottom := bottom_edge-62.0-8.0
+	var inspector_width := inner_width if phone else minf(308.0 if compact else 338.0,inner_width)
+	_inspector.position = Vector2(right_edge-inspector_width,content_top)
 	_inspector_scroll.vertical_scroll_mode = ScrollContainer.SCROLL_MODE_AUTO if compact else ScrollContainer.SCROLL_MODE_DISABLED
 	_inspector.size = Vector2(inspector_width,maxf(160.0,panel_bottom-_inspector.position.y) if compact else 0.0)
 	_inspection_description.visible = not compact
 	_refresh_inspection()
-	var menu_width := (width-margin*2) if phone else 310.0
-	_menu.position = Vector2(width-margin-menu_width,margin+top_height+12)
+	var menu_width := inner_width if phone else minf(310.0,inner_width)
+	_menu.position = Vector2(right_edge-menu_width,content_top)
 	_menu_scroll.vertical_scroll_mode = ScrollContainer.SCROLL_MODE_AUTO if compact else ScrollContainer.SCROLL_MODE_DISABLED
 	_menu.size = Vector2(menu_width,maxf(160.0,panel_bottom-_menu.position.y) if compact else 0.0)
-	var help_width := minf(630.0,width-margin*2)
-	var help_height := minf(570.0,height-margin*2-10)
-	_help.position = Vector2((width-help_width)*0.5,(height-help_height)*0.5)
+	var help_width := minf(630.0,inner_width)
+	var help_height := minf(570.0,bottom_edge-top_edge-10.0)
+	_help.position = Vector2(left_edge+(inner_width-help_width)*0.5,top_edge+(bottom_edge-top_edge-help_height)*0.5)
 	_help.size = Vector2(help_width,help_height)
-	var mode_width := minf(665.0,width-margin*2)
-	_mode_panel.position = Vector2((width-mode_width)*0.5,height-margin-132)
+	var mode_width := minf(665.0,inner_width)
+	_mode_panel.position = Vector2(left_edge+(inner_width-mode_width)*0.5,bottom_edge-132.0)
 	_mode_panel.size = Vector2(mode_width,56)
-	var toast_width := minf(500.0,width-margin*2)
-	_toast.position = Vector2((width-toast_width)*0.5,margin+top_height+12)
+	var toast_width := minf(500.0,inner_width)
+	_toast.position = Vector2(left_edge+(inner_width-toast_width)*0.5,content_top)
 	_toast.size = Vector2(toast_width,0)

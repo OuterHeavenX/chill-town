@@ -142,6 +142,24 @@
   const canvas = document.getElementById('canvas');
   if (canvas && t.canvasFallback) canvas.textContent = t.canvasFallback;
 
+  // Safe-area insets for the engine: [top, right, bottom, left] in CSS pixels.
+  const safeProbe = document.getElementById('safe-probe');
+  const standalone = () => !!(navigator.standalone || (window.matchMedia && window.matchMedia('(display-mode: standalone)').matches));
+  function readSafeArea() {
+    let insets = [0, 0, 0, 0];
+    if (safeProbe) {
+      const style = getComputedStyle(safeProbe);
+      insets = [style.paddingTop, style.paddingRight, style.paddingBottom, style.paddingLeft].map(v => parseFloat(v) || 0);
+    }
+    // A home-screen app draws under the status bar; keep a floor in case the
+    // browser reports no inset at all.
+    if (standalone() && insets[0] < 20) insets[0] = 20;
+    window.chillTownSafeArea = insets;
+  }
+  readSafeArea();
+  window.addEventListener('resize', readSafeArea);
+  window.addEventListener('orientationchange', () => setTimeout(readSafeArea, 250));
+
   const byId = id => document.getElementById(id);
   const overlay = byId('status');
   const label = byId('status-label');

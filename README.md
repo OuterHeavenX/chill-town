@@ -24,15 +24,20 @@ There is no account, server, or API key. Saves stay in the browser that made the
 | --- | --- | --- |
 | Move the camera | Drag the ground, or WASD / arrow keys | Drag with one finger (two fingers while drawing roads) |
 | Zoom | Mouse wheel | Pinch, or the **+** / **−** buttons |
-| Rotate the view | Q / E | The two rotate buttons on the camera pad |
+| Rotate the view | Q / E | Twist with two fingers, or the rotate buttons on the camera pad |
 | Recenter on the village | Home, or the **Village** button | The crosshair button on the camera pad |
 | Select or build | Click | Tap |
 | Draw roads | R, then drag | **Roads**, then drag with one finger |
 | Pause, speed | Space, 1 / 2 / 4 | **Pause**, **1×** button cycles speed |
 | Save / load | F5 / F9 | Menu |
 
-The camera pad appears automatically on touch screens. On narrow screens the HUD
-switches to a compact layout with fewer counters.
+The camera pad appears automatically on touch screens. Two fingers do everything
+at once: pinch to zoom, twist to rotate, drag to pan, even while drawing a road.
+
+On narrow screens the HUD switches to a compact layout. It keeps as many resource
+counters as the bar can hold, and the Army button replaces Help once a barracks is
+standing. Panels are laid out inside the device safe area, so nothing hides under a
+status bar, a notch, or the home indicator.
 
 ## What is playable
 
@@ -96,8 +101,9 @@ in the code are Portuguese keys translated through `game/locale/en.json`.
 - Renamed to Chill Town (project name, loading screen, in-game brand, save folder).
 - English is the default language; 144 missing English strings were added.
 - The worker "working" animation now matches translated status text, not only Portuguese.
-- Touch controls: on-screen camera pad (zoom, rotate, recenter), two-finger pan, and a
-  phone layout for the HUD; the loading screen no longer nags on phone-sized windows.
+- Touch controls: two-finger pinch, twist-to-rotate and pan; an on-screen camera pad
+  (zoom, rotate, recenter); and a phone layout for the HUD that respects the device
+  safe area and adapts the counter row to the width available.
 - The stone deposit is now visible as granite outcrops south of the main building, and its
   cells are highlighted while the quarry tool is active (it was invisible before).
 - Added a headless test for the touch HUD and the deposit markers (`game/tests/test_touch_hud.gd`).
