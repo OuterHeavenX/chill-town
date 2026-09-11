@@ -184,5 +184,17 @@ func run()->void:
 	# --- Desktop width returns to the full layout.
 	root.size=Vector2i(1280,800);await frames(4)
 	expect(hud._help_dock_button.visible and hud._resource_buttons.population.visible,"desktop layout restores every control")
+	# --- The report reaches the dock only where the row still fits.
+	expect(not hud._tabs.report.visible,"a 1280 window is too narrow for the report tab")
+	expect(row_width(hud._dock_row)<=hud._dock.size.x-16.0+0.5,"dock fits at 1280 (%.0f of %.0f)"%[row_width(hud._dock_row),hud._dock.size.x-16.0])
+	root.size=Vector2i(1180,700);await frames(4)
+	expect(not hud._tabs.report.visible,"the report tab stays hidden on a narrow desktop")
+	expect(row_width(hud._dock_row)<=hud._dock.size.x-16.0+0.5,"dock fits at 1180 (%.0f of %.0f)"%[row_width(hud._dock_row),hud._dock.size.x-16.0])
+	root.size=Vector2i(1500,900);await frames(4)
+	expect(hud._tabs.report.visible and hud._tabs.report.text=="Buildings","a wide dock shows the report tab")
+	expect(row_width(hud._dock_row)<=hud._dock.size.x-16.0+0.5,"dock fits with the report tab (%.0f of %.0f)"%[row_width(hud._dock_row),hud._dock.size.x-16.0])
+	hud._tabs.report.pressed.emit();await frames(3)
+	expect(hud._report.visible,"the dock tab opens the report")
+	hud.close_panels();await frames(2)
 	print("TOUCH_HUD_RESULT checks=%d failures=%s"%[checks,failures])
 	quit(0 if failures.is_empty() else 1)

@@ -558,6 +558,8 @@ func _make_dock() -> void:
 	_tabs["army"] = _button(row,tr("Exército"),_choose_army,110)
 	_tabs["army"].tooltip_text = tr("Clique no mapa para dar um objetivo à companhia")
 	_tabs["objectives"] = _button(row,tr("Objetivos"),_toggle_objectives,122)
+	_tabs["report"] = _button(row,tr("Construções"),_show_report,122)
+	_tabs["report"].tooltip_text = tr("O que você tem de pé e o que cada construção oferece")
 	_accent(_tabs["build"])
 	_accent(_tabs["road"])
 	_spacer(row)
@@ -1167,6 +1169,8 @@ func _retranslate() -> void:
 			_tabs["army"].text = tr("Exército")
 			_tabs["army"].tooltip_text = tr("Clique no mapa para dar um objetivo à companhia")
 		_tabs["objectives"].text = tr("Objetivos")
+		_tabs["report"].text = tr("Construções")
+		_tabs["report"].tooltip_text = tr("O que você tem de pé e o que cada construção oferece")
 	if is_instance_valid(_village_focus):
 		_village_focus.text = tr("Vila")
 		_village_focus.tooltip_text = tr("Voltar ao centro da vila")
@@ -1685,6 +1689,9 @@ func _layout() -> void:
 		_tabs["army"].visible = army_visible
 	_tabs["objectives"].custom_minimum_size.x = 102.0 if compact else 122.0
 	_tabs["objectives"].visible = inner_width >= 960.0
+	# The report lives in the menu everywhere; a wide dock has room to surface it.
+	_tabs["report"].custom_minimum_size.x = 102.0 if compact else 122.0
+	_tabs["report"].visible = inner_width >= 1280.0
 	_village_focus.visible = inner_width >= 860.0
 	_village_focus.custom_minimum_size.x = 57.0 if compact else 70.0
 	_pause.custom_minimum_size.x = 0.0 if phone else (76.0 if compact else 88.0)
@@ -1693,7 +1700,7 @@ func _layout() -> void:
 	_speed_cycle.custom_minimum_size.x = 44.0 if phone else 48.0
 	_help_dock_button.visible = (not phone) or (not army_visible and inner_width >= 360.0)
 	_help_dock_button.custom_minimum_size.x = 40.0 if phone else 44.0
-	for dock_button: Button in [_tabs["build"],_tabs["road"],_tabs["training"],_tabs["army"],_pause,_speed_cycle,_help_dock_button]:
+	for dock_button: Button in [_tabs["build"],_tabs["road"],_tabs["training"],_tabs["army"],_tabs["report"],_pause,_speed_cycle,_help_dock_button]:
 		if phone:
 			dock_button.add_theme_font_size_override("font_size",13)
 		else:
