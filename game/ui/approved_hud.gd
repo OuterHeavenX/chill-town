@@ -64,6 +64,23 @@ class ScrollButton extends Button:
 		return null
 
 
+## A panel inside a scrolling list hands vertical drags to that list, so a row
+## is draggable across its whole face. The engine's own touch scrolling only
+## sees the gaps between rows, and is disabled outside a touchscreen entirely.
+class ScrollPanel extends PanelContainer:
+
+	func _gui_input(event: InputEvent) -> void:
+		if not event is InputEventScreenDrag:
+			return
+		var node := get_parent()
+		while node != null:
+			if node is ScrollContainer:
+				(node as ScrollContainer).scroll_vertical -= roundi((event as InputEventScreenDrag).relative.y)
+				accept_event()
+				return
+			node = node.get_parent()
+
+
 class Glyph extends Control:
 
 	var kind := "house"
@@ -372,7 +389,7 @@ func _focus_style() -> StyleBoxFlat:
 	return style
 
 func _panel(parent: Node, register_region: bool = true, padding: int = 14) -> PanelContainer:
-	var panel := PanelContainer.new()
+	var panel := ScrollPanel.new()
 	var style := _style(PANEL, BRONZE.darkened(0.2), 7, padding)
 	style.set_border_width_all(2)
 	style.shadow_color = Color(0.08,0.12,0.09,0.23)

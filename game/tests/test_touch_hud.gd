@@ -157,6 +157,19 @@ func run()->void:
 	expect(hud._report.position.y+hud._report.size.y<=root.size.y+0.5,"the report fits the phone height")
 	expect(hud._report.get_combined_minimum_size().x<=hud._report.size.x+0.5,"nothing widens the report past the screen")
 	expect(hud.blocks_pointer(hud._report.position+hud._report.size*0.5),"the report blocks taps reaching the world")
+	# A row is not a control, so a drag across it must reach the scroll area.
+	var report_row:Control=null
+	for child in hud._report_body.get_children():
+		if child is PanelContainer:report_row=child;break
+	expect(report_row!=null,"the report has rows to drag")
+	var report_grip:Vector2=report_row.get_global_rect().get_center()
+	push_touch(true,report_grip)
+	for step in range(6):
+		push_drag(report_grip-Vector2(0,12.0*(step+1)),Vector2(0,-12))
+	push_touch(false,report_grip-Vector2(0,72))
+	await frames(2)
+	expect(hud._report_scroll.scroll_vertical>0,"a drag on a report row scrolls the list")
+	expect(tr("Precisa de {role}").format({"role":"instructor"})=="Needs one instructor","the worker line reads as English")
 	hud.close_panels();await frames(2)
 	expect(not hud._report.visible,"closing the panels hides the report")
 	# --- The stone deposit is visible and highlighted while placing a quarry.
