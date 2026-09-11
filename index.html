@@ -1,0 +1,96 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no, viewport-fit=cover">
+  <meta name="apple-mobile-web-app-capable" content="yes">
+  <meta name="mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+  <meta name="theme-color" content="#1c1f2b">
+  <meta name="description" content="Chill Town - a cozy stroll through a vineyard valley. Harvest grapes, help the townsfolk, and relax.">
+  <title>Chill Town</title>
+  <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Ccircle cx='11' cy='13' r='5' fill='%237b3fa0'/%3E%3Ccircle cx='21' cy='13' r='5' fill='%237b3fa0'/%3E%3Ccircle cx='16' cy='21' r='5' fill='%236a2f90'/%3E%3Crect x='15' y='3' width='2' height='6' fill='%23553b1f'/%3E%3C/svg%3E">
+  <link rel="stylesheet" href="css/style.css">
+</head>
+<body>
+  <div id="game">
+    <canvas id="c" aria-label="Chill Town game world"></canvas>
+
+    <!-- HUD -->
+    <div id="hud" hidden>
+      <div class="hud-row">
+        <span class="pill" id="hud-time">Day 1 &middot; 08:00</span>
+        <span class="pill" id="hud-grapes" title="Grapes">🍇 0</span>
+        <span class="pill" id="hud-coins" title="Coins">🪙 0</span>
+        <button class="pill btn" id="btn-menu" type="button" aria-label="Open menu">☰</button>
+      </div>
+      <div class="hud-row">
+        <span class="pill objective" id="hud-objective">Find the mayor in the town square.</span>
+      </div>
+    </div>
+
+    <!-- Dialogue box -->
+    <div id="dialog" hidden>
+      <div class="dialog-name" id="dialog-name"></div>
+      <div class="dialog-text" id="dialog-text"></div>
+      <div class="dialog-hint" id="dialog-hint">tap or press E to continue</div>
+    </div>
+
+    <!-- Toast -->
+    <div id="toast" hidden></div>
+
+    <!-- Touch controls -->
+    <div id="touch" hidden>
+      <div id="stick-zone">
+        <div id="stick-base">
+          <div id="stick-knob"></div>
+        </div>
+      </div>
+      <div id="btn-a" role="button" aria-label="Interact">
+        <span>A</span>
+      </div>
+    </div>
+
+    <!-- Title screen -->
+    <div id="title">
+      <div class="title-card">
+        <h1>Chill Town</h1>
+        <p class="tagline">A cozy stroll through the vineyard valley.</p>
+        <div class="title-buttons">
+          <button type="button" id="btn-continue" class="big">Continue</button>
+          <button type="button" id="btn-new" class="big">New Game</button>
+        </div>
+        <div class="controls">
+          <div class="control-col">
+            <h3>Keyboard</h3>
+            <p><b>WASD</b> / <b>Arrow keys</b> — walk</p>
+            <p><b>E</b> / <b>Space</b> / <b>Enter</b> — talk, pick, sit</p>
+            <p><b>Esc</b> — menu</p>
+          </div>
+          <div class="control-col">
+            <h3>Touch</h3>
+            <p><b>Left side</b> — drag to walk</p>
+            <p><b>A button</b> — talk, pick, sit</p>
+            <p><b>☰</b> — menu</p>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Pause / menu -->
+    <div id="menu" hidden>
+      <div class="title-card small">
+        <h2>Paused</h2>
+        <div class="title-buttons">
+          <button type="button" id="btn-resume" class="big">Resume</button>
+          <button type="button" id="btn-touch-toggle" class="big">Toggle touch controls</button>
+          <button type="button" id="btn-restart" class="big danger">Restart game</button>
+        </div>
+        <p class="tiny">Progress saves automatically.</p>
+      </div>
+    </div>
+  </div>
+
+  <script src="js/game.js"></script>
+</body>
+</html>
