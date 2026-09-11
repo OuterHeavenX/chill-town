@@ -62,6 +62,25 @@ func nearest_standing_tree(from: Vector2i) -> Vector2i:
 	return best
 
 
+## Nearest standing tree the caller is willing to take. The woodcutter passes a
+## reachability test so a trunk walled in by its neighbours is skipped instead of
+## stalling the hut on the closest trunk it can never stand beside.
+func nearest_standing_tree_where(from: Vector2i, allowed: Callable) -> Vector2i:
+	var best := Vector2i(-1, -1)
+	var best_d := 1 << 30
+	for cell: Vector2i in _cells:
+		if _harvested.has(cell):
+			continue
+		var d: int = (cell.x - from.x) * (cell.x - from.x) + (cell.y - from.y) * (cell.y - from.y)
+		if d >= best_d:
+			continue
+		if not allowed.call(cell):
+			continue
+		best_d = d
+		best = cell
+	return best
+
+
 func harvested_cells() -> Array[Vector2i]:
 	var cells: Array[Vector2i] = []
 	for cell: Vector2i in _cells:

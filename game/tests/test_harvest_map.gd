@@ -25,6 +25,7 @@ func run() -> void:
 	_test_dedicated_meshes()
 	_test_chop_duration()
 	_test_chop_facing()
+	_test_reachable_tree_choice()
 	print("HARVEST_MAP_RESULT checks=", checks, " failures=", failures)
 	quit(0 if failures.is_empty() else 1)
 
@@ -193,3 +194,26 @@ func _test_chop_facing() -> void:
 	var expected: float = atan2(-toward.x, -toward.y)
 	expect(absf(angle_difference(actor.rotation.y, expected)) < 0.35, "woodcutter faces the tree while chopping")
 	world.free()
+
+
+func _test_reachable_tree_choice() -> void:
+	var sim := Sim.new()
+	sim.setup()
+	var walled_in: Array[Vector2i] = []
+	var reachable: Array[Vector2i] = []
+	for cell: Vector2i in sim.harvest_map.tree_cells():
+		if sim._tree_stand_cell(cell).x < 0:
+			walled_in.append(cell)
+		else:
+			reachable.append(cell)
+	expect(not walled_in.is_empty() and not reachable.is_empty(), "the groves hold both walled-in and reachable trees")
+	# Standing on a walled-in trunk, the plain search returns that same trunk.
+	var inside: Vector2i = walled_in[0]
+	expect(sim._tree_stand_cell(sim.harvest_map.nearest_standing_tree(inside)).x < 0, "the closest tree to a walled-in cell has no free side")
+	var pick: Vector2i = sim.harvest_map.nearest_standing_tree_where(inside, sim._tree_has_stand)
+	expect(pick.x >= 0 and sim._tree_stand_cell(pick).x >= 0, "the woodcutter search finds a tree it can reach")
+	# Fell every reachable tree: only then is there genuinely no work left.
+	for cell: Vector2i in reachable:
+		sim.harvest_map.harvest(cell)
+	expect(sim.harvest_map.nearest_standing_tree_where(inside, sim._tree_has_stand) == Vector2i(-1, -1), "no reachable tree left reports no work")
+	expect(sim.harvest_map.nearest_standing_tree(inside).x >= 0, "the walled-in trunks are still standing")

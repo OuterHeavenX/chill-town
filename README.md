@@ -53,7 +53,7 @@ buildings, train professions, and expand the economy.
 - Civilians accept tasks automatically and gather in the plaza when idle.
 - Servants deliver materials; builders construct buildings and road tiles.
 - The school spends gold and trains new people.
-- Woodcutters harvest trees; the sawmill turns trunks into timber; quarries need a stone deposit.
+- Woodcutters harvest the nearest tree they can reach; the sawmill turns trunks into timber; quarries need a stone deposit.
 - Grain goes through mill and bakery to loaves; workers eat at the inn.
 - Barracks take recruits plus axes or bows. Army mode sets a company objective.
 - Menu → first lesson locks the farm/wine chain until school, inn, woodcutter and quarry exist.
@@ -113,6 +113,8 @@ in the code are Portuguese keys translated through `game/locale/en.json`.
   so on a phone you could only scroll by catching a gap between two cards.
 - The stone deposit is now visible as granite outcrops south of the main building, and its
   cells are highlighted while the quarry tool is active (it was invisible before).
+- Woodcutters pick the nearest tree they can actually stand beside. They used to take the
+  closest trunk and stall for good when it was walled in by the middle of a grove.
 - Added a headless test for the touch HUD and the deposit markers (`game/tests/test_touch_hud.gd`).
 - Added a GitHub Actions workflow that runs the simulation tests, exports the web
   build with Godot 4.7.2, and deploys it to GitHub Pages.

@@ -913,9 +913,12 @@ func _produce(w: Dictionary, b: Dictionary) -> void:
 		w.state = tr("Aguardando equipamento no quartel")
 		return
 	if b.kind == "lumber" and harvest_map != null:
-		var tree: Vector2i = harvest_map.nearest_standing_tree(w.cell)
+		# Take the nearest tree the worker can actually stand beside. Trunks in
+		# the middle of a grove are walled in by their neighbours and never open
+		# up, so stopping at the closest one stalled the hut for good.
+		var tree: Vector2i = harvest_map.nearest_standing_tree_where(w.cell, _tree_has_stand)
 		if tree == Vector2i(-1, -1):
-			w.state = tr("Sem árvores para cortar")
+			w.state = tr("Sem acesso à árvore") if harvest_map.nearest_standing_tree(w.cell).x >= 0 else tr("Sem árvores para cortar")
 			return
 		if int(b.output.get("trunks", 0)) >= 20:
 			w.state = tr("Aguardando retirada da produção")
@@ -976,6 +979,9 @@ func _produce(w: Dictionary, b: Dictionary) -> void:
 			b.output.bow = int(b.output.get("bow", 0)) + 1
 			produced.bow += 1
 
+
+func _tree_has_stand(tree: Vector2i) -> bool:
+	return _tree_stand_cell(tree).x >= 0
 
 func _tree_stand_cell(tree: Vector2i) -> Vector2i:
 	for delta in [Vector2i.RIGHT, Vector2i.DOWN, Vector2i.LEFT, Vector2i.UP]:
