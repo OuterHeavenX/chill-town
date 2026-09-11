@@ -17,9 +17,9 @@ Pages → Source: **GitHub Actions**), the game is live at:
 `https://<your-user>.github.io/chill-town/`
 
 Enabling Pages also creates a `github-pages` environment that only lets the
-repository's default branch deploy. If you deploy from another branch, add it under
-Settings → Environments → `github-pages` → Deployment branches, or the deploy job
-fails immediately with no logs.
+repository's default branch deploy. To publish from another branch, add it under
+Settings → Environments → `github-pages` → Deployment branches; otherwise the deploy
+job fails immediately with no logs to explain why.
 
 There is no account, server, or API key. Saves stay in the browser that made them.
 

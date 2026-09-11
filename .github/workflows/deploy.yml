@@ -2,7 +2,7 @@ name: Build and deploy to GitHub Pages
 
 on:
   push:
-    branches: [main, claude/chill-town-localization-mobile-qhso04]
+    branches: [main]
   workflow_dispatch:
 
 permissions:
