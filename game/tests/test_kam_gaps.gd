@@ -57,6 +57,8 @@ func run() -> void:
 	_test_trees_trunks_timber()
 	_test_quarry_deposit()
 	_test_corn_loaves()
+	_test_iron_chain()
+	_test_sword_outclasses_axe()
 	_test_market_gold()
 	_test_army_equipment()
 	_test_mission_lock()
@@ -217,6 +219,89 @@ func _test_corn_loaves() -> void:
 		if str(row.text).contains("12") and str(row.text).to_lower().contains("vinh"):
 			wine_win = true
 	expect(not wine_win, "sandbox identity win is not deliver-12-wines")
+
+
+## Trunks to charcoal, seam to ore, both to iron, iron to a blade. Each step has
+## to consume its inputs and record them, or the chain is decoration.
+func _test_iron_chain() -> void:
+	var sim := Approved.new()
+	sim.setup()
+	connect_school(sim)
+	expect(not sim.iron_deposits.is_empty(), "the valley has an iron seam")
+	expect(not sim.command("build", {"kind": "mine", "cell": Vector2i(16, 6)}).ok, "a mine away from the seam is refused")
+	var pit: Dictionary = sim.command("build", {"kind": "mine", "cell": Vector2i(6, 5)})
+	expect(pit.ok, "a mine against the seam is allowed: " + str(pit.message))
+	link_entrance(sim, sim.buildings.back().entrance)
+	expect(sim.command("build", {"kind": "kiln", "cell": Vector2i(16, 6)}).ok, "the charcoal burner places anywhere")
+	link_entrance(sim, sim.buildings.back().entrance)
+	# Two woodcutters: a kiln and a sawmill both eat trunks, so one hut starves
+	# the chain even though nothing about it is broken.
+	for grove in [Vector2i(3, 18), Vector2i(5, 16)]:
+		expect(sim.command("build", {"kind": "lumber", "cell": grove}).ok, "a woodcutter supplies the trunks")
+		link_entrance(sim, sim.buildings.back().entrance)
+	expect(sim.command("build", {"kind": "foundry", "cell": Vector2i(17, 16)}).ok, "the foundry places")
+	link_entrance(sim, sim.buildings.back().entrance)
+	expect(sim.command("build", {"kind": "forge", "cell": Vector2i(4, 21)}).ok, "the forge places")
+	link_entrance(sim, sim.buildings.back().entrance)
+	for role in ["miner", "collier", "lumberjack", "lumberjack", "smelter", "blacksmith"]:
+		sim.command("train", {"role": role})
+	for kind in ["mine", "kiln", "lumber", "foundry", "forge"]:
+		expect(wait_complete(sim, kind, 9000), kind + " completes through autonomous builders")
+	var swords := 0
+	for i in range(30000):
+		sim.step()
+		swords = int(sim.produced.get("sword", 0))
+		if swords >= 1:
+			break
+	expect(int(sim.produced.get("ore", 0)) >= 1, "the mine digs ore from the seam")
+	expect(int(sim.produced.get("charcoal", 0)) >= 1, "the kiln burns trunks into charcoal")
+	expect(int(sim.consumed.get("trunks", 0)) >= 1, "charcoal is made from real trunks")
+	expect(int(sim.produced.get("iron", 0)) >= 1, "the foundry smelts iron")
+	expect(int(sim.consumed.get("ore", 0)) >= 2 and int(sim.consumed.get("charcoal", 0)) >= 1, "smelting eats both ore and charcoal")
+	expect(swords >= 1, "the forge turns iron into a sword")
+	expect(int(sim.consumed.get("iron", 0)) >= 1, "a sword costs a bar of iron")
+	expect(sim.conservation_errors().is_empty(), "the iron chain conserves goods: " + str(sim.conservation_errors()))
+
+
+## The whole point of the chain: a swordsman has to be worth more than militia.
+func _test_sword_outclasses_axe() -> void:
+	var sim := Approved.new()
+	sim.setup()
+	var battle: RefCounted = sim.battle
+	expect(battle == null, "the sandbox starts without a company")
+	var kits: Dictionary = load("res://simulation/battle_sim.gd").KITS
+	expect(int(kits.sword.damage) > int(kits.axe.damage), "a sword hits harder than an axe")
+	expect(int(kits.sword.hp) > int(kits.axe.hp), "a swordsman carries more than militia")
+	expect(str(kits.sword.role) == "lancer" and str(kits.bow.role) == "archer", "each kit belongs to one soldier type")
+
+	# A recruit takes the best weapon the store holds, not simply the first.
+	var armed := Approved.new()
+	armed.setup()
+	connect_school(armed)
+	expect(armed.command("build", {"kind": "barracks", "cell": Vector2i(16, 6)}).ok, "barracks places")
+	link_entrance(armed, armed.buildings.back().entrance)
+	armed.command("train", {"role": "recruit"})
+	expect(wait_complete(armed, "barracks", 6000), "barracks completes")
+	advance(armed, 1200)
+	armed.stock.sword += 1
+	armed.initial.sword += 1
+	var swordsman: Dictionary = armed.command("recruit", {"role": "lancer"})
+	expect(swordsman.ok, "a recruit is armed: " + str(swordsman.message))
+	expect(int(armed.consumed.get("sword", 0)) == 1, "the sword was taken before the axes")
+	expect(int(armed.consumed.get("axe", 0)) == 0, "the axes are still on the shelf")
+	var soldier: Dictionary = {}
+	for unit in armed.battle.units:
+		if unit.team == "ally":
+			soldier = unit
+	expect(str(soldier.get("kit", "")) == "sword", "the soldier carries the sword they were given")
+	expect(int(soldier.get("max_hp", 0)) == int(kits.sword.hp), "and is as tough as the sword kit says")
+	expect(armed.conservation_errors().is_empty(), "arming a soldier conserves goods: " + str(armed.conservation_errors()))
+	# With no sword left the next recruit falls back to an axe.
+	armed.command("train", {"role": "recruit"})
+	advance(armed, 2000)
+	var militia: Dictionary = armed.command("recruit", {"role": "lancer"})
+	if militia.ok:
+		expect(int(armed.consumed.get("axe", 0)) == 1, "the next recruit falls back to an axe")
 
 
 ## Gold used to be a countdown: fifty coins at the start and no producer, so the

@@ -4,8 +4,8 @@ extends RefCounted
 const Core = preload("res://presentation/approved_buildings.gd")
 const Base = preload("res://presentation/approved_primitives.gd")
 const EarthYard = preload("res://presentation/approved_earth_yard.gd")
-const KINDS := ["house","store","lumber","sawmill","quarry","farm","vineyard","winery","inn","mill","bakery","market","workshop","barracks"]
-const IDS := {"house":"bld_02_casas","store":"bld_03_armazem","lumber":"bld_06_cabana_do_lenhador","sawmill":"bld_07_serraria","quarry":"bld_08_pedreira","farm":"bld_12_horta","vineyard":"kit_03_lavouras_e_vinhedos","winery":"bld_20_vinicola","inn":"bld_19_taverna","mill":"bld_14_moinho","bakery":"bld_15_padaria","market":"bld_05_mercado","workshop":"bld_22_carpintaria","barracks":"bld_26_quartel"}
+const KINDS := ["house","store","lumber","sawmill","quarry","farm","vineyard","winery","inn","mill","bakery","market","kiln","mine","foundry","forge","workshop","barracks"]
+const IDS := {"house":"bld_02_casas","store":"bld_03_armazem","lumber":"bld_06_cabana_do_lenhador","sawmill":"bld_07_serraria","quarry":"bld_08_pedreira","farm":"bld_12_horta","vineyard":"kit_03_lavouras_e_vinhedos","winery":"bld_20_vinicola","inn":"bld_19_taverna","mill":"bld_14_moinho","bakery":"bld_15_padaria","market":"bld_05_mercado","kiln":"bld_09_carvoaria","mine":"bld_10_mina_de_ferro","foundry":"bld_11_fundicao","forge":"bld_23_forja_de_armas","workshop":"bld_22_carpintaria","barracks":"bld_26_quartel"}
 const WOOD := Color("81582f")
 const DARK_WOOD := Color("4d3521")
 const LIGHT_WOOD := Color("ae8248")
@@ -36,6 +36,10 @@ static func building(kind: String) -> Node3D:
 			"mill": _mill(b)
 			"bakery": _bakery(b)
 			"market": _market(b)
+			"kiln": _kiln(b)
+			"mine": _mine(b)
+			"foundry": _foundry(b)
+			"forge": _forge(b)
 			"workshop": _workshop(b)
 			"barracks": _barracks(b)
 		for key in Base.MATERIAL_KEYS:
@@ -228,6 +232,11 @@ static func _cart(b, at: Vector3, width: float = 0.91, depth: float = 1.10, rota
 		for i in range(3): Base._log(source,Vector3((i-1)*0.20,0.63,-0.1),0.12,depth*0.95)
 	elif cargo == "stone":
 		for i in range(2): _box(source,Vector3((i-0.5)*0.33,0.70,0),Vector3(0.32,0.37,0.46),TRIM,"stone")
+	elif cargo in ["coal", "ore"]:
+		var tint: Color = Color("22201f") if cargo == "coal" else Color("8a4a2c")
+		for i in range(7):
+			var spread := source.rng.randf_range(-0.26,0.26)
+			Base._ellipsoid(source,Vector3(spread,0.56+source.rng.randf_range(0.0,0.10),source.rng.randf_range(-depth*0.3,depth*0.3)),Vector3(0.19,0.15,0.18),source.shade(tint,0.16),"stone",true)
 	else: Base._crate(source,Vector3(0,0.51,-0.08),0.9)
 	Core._merge(b,source,Transform3D(Basis(Vector3.UP,rotation),at))
 
@@ -324,6 +333,166 @@ static func _market(b) -> void:
 		Base._crate(b,Vector3(2.08,0.22+i*0.42,-0.28),0.78)
 	for pair in [[Vector3(-2.12,0.18,-1.86),Vector3(-2.12,0.18,-0.36)],[Vector3(2.12,0.18,-1.86),Vector3(2.12,0.18,-0.92)]]:
 		_yard_fence(b,pair[0],pair[1],0.52)
+
+
+## Colours the iron chain shares: charcoal black, glowing forge mouths, and the
+## rust of raw ore.
+const COAL := Color("22201f")
+const EMBER := Color("e2762c")
+const RUST := Color("8a4a2c")
+const IRON := Color("9aa0a6")
+
+
+## Catalog plate bld_09_carvoaria: an open timber shed over low domed kilns, with
+## coal heaps, stacked logs and a smoking chimney.
+static func _kiln(b) -> void:
+	_base(b,4.66,true)
+	# The shed: posts and a tiled roof, open on the working side.
+	for x in [-1.92, 1.92]:
+		for z in [-1.68, 0.0, 1.68]:
+			_box(b,Vector3(x,1.18,z),Vector3(0.22,2.00,0.22),WOOD)
+	_beam(b,Vector3(-1.92,2.20,-1.68),Vector3(-1.92,2.20,1.68),0.16,WOOD)
+	_beam(b,Vector3(1.92,2.20,-1.68),Vector3(1.92,2.20,1.68),0.16,WOOD)
+	Core._masonry(b,Vector3(0.0,0.22,-1.86),4.20,0.46,1.10)
+	_roof(b,Vector3(0.0,2.56,0.0),4.44,4.20,1.22)
+	Core._chimney(b,Vector3(-1.16,3.06,-1.44),1.44,0.52)
+	Core._banner(b,Vector3(0.30,3.00,-0.30),0.46,0.80)
+	_awning(b,Vector3(1.62,2.10,0.86),1.42,1.30,0.28,PI*0.5,false)
+	# Two low kilns with glowing mouths, as the plate shows them.
+	for x in [-1.00, 0.52]:
+		Base._cylinder(b,Vector3(x,0.22,-0.52),0.58,0.44,b.shade(TRIM,0.08),"stone")
+		Base._ellipsoid(b,Vector3(x,0.78,-0.52),Vector3(1.08,1.06,1.08),b.shade(TRIM,0.11),"stone",true)
+		Base._cylinder(b,Vector3(x,1.32,-0.52),0.17,0.30,b.shade(STONE,0.10),"stone")
+		# The mouth stands proud of the dome, or the fire is never seen.
+		_box(b,Vector3(x,0.46,0.18),Vector3(0.40,0.52,0.30),COAL,"stone")
+		Core._arch_frame(b,Vector3(x,0.50,0.34),0.46,0.58,0.09)
+		_box(b,Vector3(x,0.42,0.36),Vector3(0.28,0.36,0.05),EMBER,"cloth")
+	# Charcoal heaps, the log pile it is made from, and the cart that hauls it.
+	for i in range(14):
+		Base._ellipsoid(b,Vector3(b.rng.randf_range(-1.70,-0.20),0.20+b.rng.randf_range(0.0,0.16),b.rng.randf_range(1.06,1.80)),Vector3(0.20,0.16,0.19),b.shade(COAL,0.18),"stone",true)
+	for row in range(3):
+		for col in range(3-row):
+			Base._log(b,Vector3(1.30+col*0.42,0.30+row*0.38,-1.28),0.19,1.36)
+	Base._barrel(b,Vector3(-1.66,0.20,-0.96),0.96)
+	_cart(b,Vector3(0.34,0.17,1.72),0.62,0.66,0.0,"coal")
+
+
+## Catalog plate bld_10_mina_de_ferro: a stone adit cut into a rock face, a
+## timbered mouth, a cart on rails and a winch over the ore heaps.
+static func _mine(b) -> void:
+	_base(b,4.66,true)
+	# The rock face the gallery is driven into.
+	for row in range(5):
+		for col in range(5):
+			var x: float = -2.10+col*0.86
+			var y: float = 0.44+row*0.62
+			var z: float = -2.14+row*0.12+(0.10 if col%2 == 0 else -0.10)
+			if row >= 2 and col >= 1 and col <= 3 and y < 2.2:
+				continue
+			_box(b,Vector3(x,y,z),Vector3(0.90,0.72,0.94),b.shade(STONE,0.15),"stone",Vector3(0,b.rng.randf_range(-0.06,0.06),0))
+	Core._masonry(b,Vector3(0.20,0.24,-0.46),2.46,1.74,1.44)
+	_roof(b,Vector3(0.20,2.04,-0.46),2.92,2.22,1.02,true)
+	Core._chimney(b,Vector3(1.44,2.40,-1.10),1.00,0.46)
+	# The timbered gallery mouth, propped and lit.
+	Core._arch_frame(b,Vector3(0.20,0.50,0.48),1.02,1.22,0.15)
+	_box(b,Vector3(0.20,0.52,0.42),Vector3(0.86,1.06,0.06),COAL,"stone")
+	for side in [-1.0, 1.0]:
+		_box(b,Vector3(0.20+side*0.58,0.54,0.50),Vector3(0.15,1.32,0.15),DARK_WOOD)
+	_beam(b,Vector3(-0.46,1.22,0.50),Vector3(0.86,1.22,0.50),0.13,DARK_WOOD)
+	Core._banner(b,Vector3(1.02,1.48,0.52),0.38,0.66)
+	# Rails out of the mouth with a loaded cart, and the winch beside them.
+	for side in [-0.22, 0.22]:
+		_beam(b,Vector3(0.20+side,0.20,0.70),Vector3(0.20+side,0.20,2.06),0.05,IRON,"metal")
+	for i in range(5):
+		_box(b,Vector3(0.20,0.17,0.84+i*0.30),Vector3(0.68,0.06,0.12),DARK_WOOD)
+	_cart(b,Vector3(0.20,0.19,1.62),0.60,0.72,0.0,"ore")
+	_box(b,Vector3(-1.62,1.28,1.14),Vector3(0.18,2.16,0.18),WOOD)
+	_beam(b,Vector3(-1.62,2.32,1.14),Vector3(-0.92,2.32,1.14),0.15,WOOD)
+	_wheel(b,Vector3(-1.62,1.72,1.26),0.42,PI*0.5)
+	_beam(b,Vector3(-1.14,2.28,1.14),Vector3(-1.14,1.52,1.14),0.025,DARK,"metal")
+	_box(b,Vector3(-1.14,1.36,1.14),Vector3(0.42,0.34,0.42),b.shade(RUST,0.10),"stone")
+	# Ore: rust-red rubble in a bin and spilled across the yard.
+	_box(b,Vector3(1.42,0.34,1.44),Vector3(1.10,0.36,0.90),DARK_WOOD)
+	for i in range(11):
+		Base._ellipsoid(b,Vector3(b.rng.randf_range(1.00,1.86),0.44+b.rng.randf_range(0.0,0.18),b.rng.randf_range(1.10,1.78)),Vector3(0.20,0.16,0.18),b.shade(RUST,0.16),"stone",true)
+	for i in range(5):
+		Base._ellipsoid(b,Vector3(b.rng.randf_range(-0.60,0.90),0.19,b.rng.randf_range(1.90,2.10)),Vector3(0.16,0.12,0.15),b.shade(RUST,0.14),"stone",true)
+
+
+## Catalog plate bld_11_fundicao: a stone hall with a great arched furnace, a
+## tall capped chimney, a water wheel on the flank and ingots stacked outside.
+static func _foundry(b) -> void:
+	_base(b,4.66,true)
+	var at := Vector3(-0.12,0.24,-0.48)
+	Core._masonry(b,at,2.68,2.04,1.72)
+	_plaster_floor(b,at+Vector3.UP*1.80,2.70,2.06,1.10,true)
+	_roof(b,at+Vector3.UP*2.94,3.20,2.46,1.16,true)
+	Core._dormer(b,Vector3(-0.94,3.28,0.28),0.54)
+	Core._small_window(b,Vector3(-1.02,2.32,0.56),0.42,0.54)
+	# The chimney is the silhouette: tall, stone, with a capped head.
+	Core._chimney(b,Vector3(1.44,3.20,-1.18),2.40,0.66)
+	_box(b,Vector3(1.44,4.46,-1.18),Vector3(0.88,0.14,0.88),b.shade(STONE,0.08),"stone")
+	_box(b,Vector3(1.44,4.62,-1.18),Vector3(0.62,0.22,0.62),b.shade(STONE,0.10),"stone")
+	# The furnace mouth, glowing, with the pour trough in front of it.
+	_box(b,Vector3(0.34,0.76,0.60),Vector3(1.06,1.40,0.18),COAL,"stone")
+	_box(b,Vector3(0.34,0.60,0.68),Vector3(0.74,0.84,0.05),EMBER,"cloth")
+	Core._arch_frame(b,Vector3(0.34,0.82,0.72),1.24,1.62,0.18)
+	# The pour trough: a stone channel with the metal running in its throat, not
+	# a sheet of light lying on the yard.
+	_box(b,Vector3(0.34,0.34,1.30),Vector3(0.80,0.36,0.58),b.shade(STONE,0.10),"stone")
+	_box(b,Vector3(0.34,0.46,1.30),Vector3(0.46,0.16,0.26),COAL,"stone")
+	_box(b,Vector3(0.34,0.50,1.30),Vector3(0.38,0.08,0.20),EMBER,"cloth")
+	Core._banner(b,Vector3(1.02,3.02,-0.08),0.46,0.80)
+	# The water wheel on the cold flank.
+	_wheel(b,Vector3(-1.78,0.96,0.42),0.84,PI*0.5)
+	_box(b,Vector3(-1.78,0.96,0.42),Vector3(0.22,0.22,0.34),DARK_WOOD)
+	_beam(b,Vector3(-1.78,0.96,0.42),Vector3(-1.08,0.96,0.42),0.10,DARK_WOOD)
+	# Ingots stacked on a pallet, and the coal that fed them.
+	for row in range(3):
+		for col in range(3-row):
+			_box(b,Vector3(-1.46+col*0.34+row*0.17,0.30+row*0.19,1.62),Vector3(0.30,0.17,0.62),b.shade(IRON,0.08),"metal")
+	_box(b,Vector3(-1.30,0.20,1.62),Vector3(1.40,0.12,0.82),WOOD)
+	_cart(b,Vector3(1.66,0.17,1.10),0.58,0.66,PI*0.5,"coal")
+	for i in range(9):
+		Base._ellipsoid(b,Vector3(b.rng.randf_range(1.30,1.98),0.20+b.rng.randf_range(0.0,0.12),b.rng.randf_range(1.44,1.96)),Vector3(0.18,0.14,0.17),b.shade(COAL,0.16),"stone",true)
+
+
+## Catalog plate bld_23_forja_de_armas: a timber smithy open at the front, anvil
+## under the eaves, glowing forge beside a tall chimney, blades on the racks.
+static func _forge(b) -> void:
+	_base(b,4.66,true)
+	var at := Vector3(0.24,0.24,-0.62)
+	Core._masonry(b,at,2.32,1.86,1.16)
+	_plaster_floor(b,at+Vector3.UP*1.22,2.34,1.88,1.42,true)
+	_roof(b,at+Vector3.UP*2.62,2.96,2.30,1.10,true)
+	Core._dormer(b,Vector3(-0.30,3.02,0.06),0.50)
+	Core._chimney(b,Vector3(1.52,2.86,-1.12),1.92,0.58)
+	# The open working bay: posts, a lintel and the teal awning over it.
+	for z in [-0.44, 1.06]:
+		_box(b,Vector3(-1.56,1.16,z),Vector3(0.19,1.96,0.19),DARK_WOOD)
+	_beam(b,Vector3(-1.56,2.08,-0.44),Vector3(-1.56,2.08,1.06),0.14,WOOD)
+	_awning(b,Vector3(-1.06,2.06,0.30),1.30,1.04,0.24,PI*0.5,true)
+	# The forge hearth, lit, with the anvil on its block in front.
+	_box(b,Vector3(1.04,0.66,0.40),Vector3(0.72,1.10,0.16),COAL,"stone")
+	_box(b,Vector3(1.04,0.52,0.48),Vector3(0.48,0.60,0.05),EMBER,"cloth")
+	Core._arch_frame(b,Vector3(1.04,0.70,0.52),0.86,1.30,0.14)
+	Base._cylinder(b,Vector3(-0.86,0.36,0.62),0.26,0.40,DARK_WOOD)
+	_box(b,Vector3(-0.86,0.66,0.62),Vector3(0.66,0.20,0.30),b.shade(DARK,0.06),"metal")
+	_box(b,Vector3(-1.14,0.72,0.62),Vector3(0.22,0.14,0.26),b.shade(DARK,0.06),"metal")
+	Base._workbench(b,Vector3(0.10,0.21,1.54),0.84)
+	# Finished blades: a rack against the post and a crate of them on the ground.
+	_box(b,Vector3(-1.66,0.86,1.72),Vector3(0.12,1.36,0.62),DARK_WOOD)
+	for i in range(4):
+		_box(b,Vector3(-1.58,1.06,1.48+i*0.16),Vector3(0.05,1.04,0.08),b.shade(IRON,0.07),"metal",Vector3(0.16,0,0))
+	_box(b,Vector3(0.94,0.32,1.80),Vector3(0.86,0.32,0.52),DARK_WOOD)
+	for i in range(3):
+		_box(b,Vector3(0.72+i*0.22,0.52,1.80),Vector3(0.06,0.10,0.46),b.shade(IRON,0.06),"metal")
+	# The lion banner on its tall pole, as the plate stands it.
+	_box(b,Vector3(-2.14,1.62,-0.16),Vector3(0.14,2.84,0.14),DARK_WOOD)
+	Core._banner(b,Vector3(-2.14,2.64,-0.16),0.48,0.88)
+	Base._barrel(b,Vector3(1.82,0.20,1.68),0.92)
+	for i in range(7):
+		Base._ellipsoid(b,Vector3(b.rng.randf_range(1.44,1.96),0.19,b.rng.randf_range(0.36,0.96)),Vector3(0.17,0.13,0.16),b.shade(COAL,0.15),"stone",true)
 
 
 static func _store(b) -> void:

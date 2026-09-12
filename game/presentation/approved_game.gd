@@ -125,7 +125,7 @@ func _select_build(kind: String) -> void:
 	selected_id = -1
 	world.set_selected(-1)
 	world.clear_preview()
-	world.set_deposit_highlight(kind == "quarry")
+	world.set_deposit_highlight(kind)
 	road_path.clear()
 	hud.set_road_tool(kind)
 	if kind == "road":

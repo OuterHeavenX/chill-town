@@ -310,20 +310,39 @@ func _entrance(parent:Node3D,cell:Vector2i,color:Color) -> void:
  # The arrow points from the road into the front door, not to a unit.
  for sign_value in [-1,1]:Basic.beam(parent,center+Vector3(0,0,-0.55),center+Vector3(sign_value*0.35,0,0),0.08,color)
  Basic.beam(parent,center+Vector3(0,0,0.4),center+Vector3(0,0,-0.55),0.08,color)
-## The stone deposit is simulation data; without a visible marker players cannot
-## tell where a quarry may go. Low granite outcrops mark each deposit cell.
+## Deposits are simulation data; without a visible marker players cannot tell
+## where a quarry or a mine may go. Granite outcrops mark the stone seam, and
+## rust-stained ones the iron, so the two read apart at a glance.
 func _build_deposit() -> void:
  deposit = Node3D.new();deposit.name="StoneDeposit";add_child(deposit)
  var index:=0
- for cell:Vector2i in sim.stone_deposits:
-  var rock:Node3D=EnvModels.rock(index+2)
-  var x:=cell.x*CELL+(0.35 if index%2==0 else -0.3);var z:=cell.y*CELL+(0.25 if index%3==0 else -0.35)
-  rock.position=Vector3(x,terrain.support_height(x,z)-0.06,z)
-  rock.rotation.y=index*1.9
-  rock.scale=Vector3(0.62,0.42,0.62)
-  rock.set_meta("deposit_cell",cell)
-  deposit.add_child(rock)
-  index+=1
+ for entry in [[sim.stone_deposits,Color.WHITE],[sim.iron_deposits,Color("b4713f")]]:
+  for cell:Vector2i in entry[0]:
+   var rock:Node3D=EnvModels.rock(index+2)
+   var x:=cell.x*CELL+(0.35 if index%2==0 else -0.3);var z:=cell.y*CELL+(0.25 if index%3==0 else -0.35)
+   rock.position=Vector3(x,terrain.support_height(x,z)-0.06,z)
+   rock.rotation.y=index*1.9
+   rock.scale=Vector3(0.62,0.42,0.62)
+   rock.set_meta("deposit_cell",cell)
+   if entry[1] != Color.WHITE:_stain(rock,entry[1])
+   deposit.add_child(rock)
+   index+=1
+
+## Ore-bearing rock is the same granite under a rusted skin, so the outcrop mesh
+## is reused and only tinted.
+func _stain(node:Node3D,tint:Color) -> void:
+ for child in node.get_children():
+  if child is Node3D:_stain(child,tint)
+  if child is MeshInstance3D:
+   var material:=StandardMaterial3D.new()
+   material.albedo_color=tint
+   material.roughness=0.94
+   (child as MeshInstance3D).material_override=material
+ if node is MeshInstance3D:
+  var own:=StandardMaterial3D.new()
+  own.albedo_color=tint
+  own.roughness=0.94
+  (node as MeshInstance3D).material_override=own
 ## Rocks under a built quarry stay hidden so the model reads cleanly.
 func _refresh_deposit_visibility() -> void:
  if deposit==null:return
@@ -333,11 +352,13 @@ func _refresh_deposit_visibility() -> void:
   for b:Dictionary in sim.buildings:
    if b.stage!="cancelled" and Rect2i(b.cell,sim.footprint_size(b.kind)).has_point(cell):covered=true;break
   rock.visible=not covered
-func set_deposit_highlight(on:bool) -> void:
+## "quarry" lights the stone seam, "mine" the iron, anything else clears both.
+func set_deposit_highlight(kind:Variant) -> void:
  _clear(deposit_highlight)
- if not on:return
- for cell:Vector2i in sim.stone_deposits:
-  _outline(deposit_highlight,Vector3(cell.x*CELL,0.05,cell.y*CELL),CELL*0.5-0.08,Color("f3d181"))
+ var wanted:String=("quarry" if kind == true else "") if typeof(kind) == TYPE_BOOL else str(kind)
+ var cells:Array[Vector2i]=sim.stone_deposits if wanted == "quarry" else (sim.iron_deposits if wanted == "mine" else ([] as Array[Vector2i]))
+ for cell:Vector2i in cells:
+  _outline(deposit_highlight,Vector3(cell.x*CELL,0.05,cell.y*CELL),CELL*0.5-0.08,Color("f3d181") if wanted == "quarry" else Color("e0a06a"))
 func set_selected(id:int) -> void:
  selected_id=id;_clear(selection)
  for b:Dictionary in sim.buildings:

@@ -9,6 +9,15 @@ const ORDERS := ["attack", "defend", "regroup", "retreat"]
 const MOVE_TICKS := 5
 const MEMORY_TICKS := 50
 const MAX_ALLIES := 24
+## What a soldier carries decides how hard they hit and how much they take. Iron
+## outclasses wood: a swordsman is worth roughly two militia with axes.
+const KITS := {
+	"axe": {"role": "lancer", "damage": 12, "hp": 100},
+	"sword": {"role": "lancer", "damage": 20, "hp": 140},
+	"bow": {"role": "archer", "damage": 16, "hp": 100}
+}
+const DEFAULT_KIT := {"lancer": "axe", "archer": "bow"}
+const MAX_KIT_HP := 140
 
 var units: Array[Dictionary] = []
 var order: String = "defend"
@@ -90,10 +99,10 @@ func issue_order(kind: String, destination: Vector2i) -> Dictionary:
 	return {"ok": true, "message": status}
 
 
-func recruit(role: String) -> bool:
+func recruit(role: String, kit: String = "") -> bool:
 	if role not in ["lancer", "archer"] or _alive("ally").size() >= MAX_ALLIES:
 		return false
-	if not _spawn("ally", role, RALLY):
+	if not _spawn("ally", role, RALLY, kit):
 		return false
 	if role == "lancer":
 		var line_count := 0
@@ -107,7 +116,7 @@ func recruit(role: String) -> bool:
 		units.back().reserve = line_count >= 6 and reserve_count < 2
 	defeated = false
 	_order_finished = false
-	_initial_health += 100
+	_initial_health += int(units.back().max_hp)
 	_notice("recruited", "Novo %s integrado automaticamente à companhia." % ("lanceiro" if role == "lancer" else "arqueiro"))
 	_refresh_vision()
 	return true
@@ -154,12 +163,14 @@ func step() -> void:
 		_evaluate_status()
 
 
-func _spawn(team: String, role: String, preferred: Vector2i) -> bool:
+func _spawn(team: String, role: String, preferred: Vector2i, kit: String = "") -> bool:
 	var location := _free_near(preferred, -1, 4)
 	if location == Vector2i(-1, -1):
 		return false
-	units.append({"id": _next_id, "team": team, "role": role, "cell": location,
-		"previous": location, "hp": 100, "max_hp": 100,
+	var carried: String = kit if KITS.has(kit) and KITS[kit].role == role else str(DEFAULT_KIT.get(role, "axe"))
+	var health: int = int(KITS[carried].hp)
+	units.append({"id": _next_id, "team": team, "role": role, "kit": carried, "cell": location,
+		"previous": location, "hp": health, "max_hp": health,
 		"ammo": 24 if role == "archer" else 0, "state": "Em formação",
 		"visible": team == "ally", "cooldown": 0, "retreating": false, "reserve": false})
 	_next_id += 1
@@ -228,7 +239,7 @@ func _try_attack(unit: Dictionary, enemy: Dictionary, damage: Dictionary) -> boo
 		return false
 	unit.state = "Protegendo a linha" if unit.role == "lancer" else "Arqueiros dando cobertura"
 	if unit.cooldown == 0:
-		var amount := 12 if unit.role == "lancer" else 16
+		var amount: int = int(KITS[str(unit.get("kit", DEFAULT_KIT.get(unit.role, "axe")))].damage)
 		damage[enemy.id] = int(damage.get(enemy.id, 0)) + amount
 		unit.cooldown = 10 if unit.role == "lancer" else 20
 		if unit.role == "archer":
@@ -581,13 +592,19 @@ func restore(data: Dictionary) -> bool:
 			return false
 		if not _saved_cell(source.get("cell")) or not _saved_cell(source.get("previous")):
 			return false
-		if not _integer(source.get("hp"), 0, 100) or source.get("max_hp") != 100 or not _integer(source.get("ammo"), 0, 24):
+		if not _integer(source.get("hp"), 0, MAX_KIT_HP) or not _integer(source.get("ammo"), 0, 24):
+			return false
+		var saved_kit: String = str(source.get("kit", DEFAULT_KIT.get(source.role, "axe")))
+		if not KITS.has(saved_kit) or KITS[saved_kit].role != source.role:
+			return false
+		if int(source.get("max_hp", 0)) != int(KITS[saved_kit].hp) or int(source.get("hp")) > int(source.get("max_hp")):
 			return false
 		if not _integer(source.get("cooldown"), 0, 20) or typeof(source.get("state")) != TYPE_STRING:
 			return false
 		if typeof(source.get("visible")) != TYPE_BOOL or typeof(source.get("retreating")) != TYPE_BOOL or typeof(source.get("reserve")) != TYPE_BOOL:
 			return false
 		var unit: Dictionary = source.duplicate(true)
+		unit.kit = saved_kit
 		unit.cell = Vector2i(int(source.cell[0]), int(source.cell[1]))
 		unit.previous = Vector2i(int(source.previous[0]), int(source.previous[1]))
 		for key in ["id", "hp", "max_hp", "ammo", "cooldown"]:
@@ -611,7 +628,7 @@ func restore(data: Dictionary) -> bool:
 		var id := int(source.id)
 		if not ids.has(id) or ids[id].team != "enemy" or known.has(id) or not _saved_cell(source.get("cell")):
 			return false
-		if not _integer(source.get("seen_tick"), 0, int(data.tick)) or not _integer(source.get("hp"), 1, 100):
+		if not _integer(source.get("seen_tick"), 0, int(data.tick)) or not _integer(source.get("hp"), 1, MAX_KIT_HP):
 			return false
 		if source.get("role") not in ["lancer", "archer"] or not _integer(source.get("ammo"), 0, 24):
 			return false

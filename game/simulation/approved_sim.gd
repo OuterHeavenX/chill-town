@@ -44,7 +44,7 @@ func setup(_peaceful_mode: bool = true) -> void:
 	reserved = _empty_items()
 	consumed = _empty_items()
 	produced = _empty_items()
-	stats = {"houses_built":0,"wine_delivered":0,"food_produced":0}
+	stats = {"houses_built":0,"wine_delivered":0,"food_produced":0,"gold_earned":0}
 	food_shortage = 0
 	arrival_ticks = 0
 	last_notice = ""
@@ -52,6 +52,9 @@ func setup(_peaceful_mode: bool = true) -> void:
 	harvest_map = load("res://simulation/harvest_map.gd").new()
 	harvest_map.setup_from_natural_cells(natural_cells)
 	stone_deposits = [Vector2i(12, 19), Vector2i(12, 20), Vector2i(11, 19), Vector2i(13, 19), Vector2i(10, 19)]
+	# Iron sits in the northern ground, a long haul from the stone in the south,
+	# so the weapon chain costs a road rather than sharing the quarry's.
+	iron_deposits = [Vector2i(6, 4), Vector2i(7, 4), Vector2i(5, 4), Vector2i(6, 3), Vector2i(8, 4)]
 	definitions.hall.name = "Edifício principal"
 	definitions.hall.description = "Abriga os primeiros moradores e o estoque inicial. Sua entrada inicia a rede de estradas."
 	definitions.store.description = "Depósito físico. Serventes buscam e deixam mercadorias na entrada."
@@ -324,6 +327,8 @@ func can_place(kind: String, cell: Vector2i) -> String:
 		return tr("Construção desconhecida ou não disponível nesta vila.")
 	if kind == "quarry" and not _quarry_has_deposit(cell):
 		return tr("A pedreira precisa ficar junto a uma jazida de pedra.")
+	if kind == "mine" and not _mine_has_deposit(cell):
+		return tr("A mina precisa encostar em uma jazida de ferro.")
 	var size := footprint_size(kind)
 	if cell.x < 2 or cell.x > WIDTH-1-size.x or cell.y < 2 or cell.y > 23:
 		return tr("Deixe espaço para toda a construção e sua entrada dentro do vale.")

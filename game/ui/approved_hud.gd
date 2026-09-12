@@ -25,13 +25,13 @@ const SUCCESS := Color("b8d292")
 ## Reading order for the village report: the core first, then each chain.
 ## The most objectives any one mission may ask for.
 const OBJECTIVE_ROWS := 8
-const REPORT_ORDER := ["hall", "training", "house", "inn", "store", "lumber", "sawmill", "quarry", "farm", "mill", "bakery", "vineyard", "winery", "market", "workshop", "barracks"]
-const BUILD_ORDER := ["lumber", "sawmill", "quarry", "farm", "mill", "bakery", "inn", "house", "vineyard", "winery", "market", "store", "workshop", "barracks", "training"]
-const ROLE_NAMES := {"resident":"Morador", "builder":"Construtor", "servant":"Servente", "instructor":"Instrutor", "lumberjack":"Lenhador", "stonecutter":"Canteiro", "farmer":"Horticultor", "vintner":"Vinhateiro", "miller":"Moleiro", "baker":"Padeiro", "merchant":"Mercador", "recruit":"Recruta"}
-const ROLE_DETAILS := {"builder":"Ergue as obras da vila", "servant":"Leva materiais e produção", "instructor":"Forma novos profissionais", "lumberjack":"Corta árvores e serra troncos", "stonecutter":"Extrai pedra", "farmer":"Cultiva alimentos e cereal", "vintner":"Cultiva uvas e produz vinho", "miller":"Moí cereal", "baker":"Asse pães", "merchant":"Vende o excedente por ouro", "recruit":"Caminha até o quartel"}
-const ITEM_NAMES := {"wood":"Madeira", "stone":"Pedra", "food":"Alimentos", "grapes":"Uvas", "wine":"Vinho", "gold":"Ouro", "trunks":"Troncos", "corn":"Cereal", "flour":"Farinha", "loaves":"Pães", "axe":"Machado", "bow":"Arco", "population":"Moradores"}
-const SHORT_NAMES := {"house":"Casa", "farm":"Horta", "vineyard":"Parreiral", "winery":"Vinícola", "store":"Armazém", "lumber":"Lenhador", "quarry":"Pedreira", "training":"Escola", "inn":"Taverna", "sawmill":"Serraria", "mill":"Moinho", "bakery":"Padaria", "market":"Mercado", "workshop":"Armas", "barracks":"Quartel"}
-const BUILD_HINTS := {"house":"Abrigo", "farm":"Alimento e cereal", "vineyard":"O começo de cada vinho", "winery":"Uvas viram vinho", "store":"Depósito físico", "lumber":"Corta árvores", "quarry":"Pedra na jazida", "training":"Forma civis com ouro", "inn":"Os trabalhadores comem aqui", "sawmill":"Troncos viram madeira", "mill":"Cereal vira farinha", "bakery":"Farinha vira pão", "market":"Vende o excedente por ouro", "workshop":"Machados e arcos", "barracks":"Recrutas recebem armas"}
+const REPORT_ORDER := ["hall", "training", "house", "inn", "store", "lumber", "sawmill", "quarry", "farm", "mill", "bakery", "vineyard", "winery", "market", "kiln", "mine", "foundry", "forge", "workshop", "barracks"]
+const BUILD_ORDER := ["lumber", "sawmill", "quarry", "farm", "mill", "bakery", "inn", "house", "vineyard", "winery", "market", "store", "kiln", "mine", "foundry", "forge", "workshop", "barracks", "training"]
+const ROLE_NAMES := {"resident":"Morador", "builder":"Construtor", "servant":"Servente", "instructor":"Instrutor", "lumberjack":"Lenhador", "stonecutter":"Canteiro", "farmer":"Horticultor", "vintner":"Vinhateiro", "miller":"Moleiro", "baker":"Padeiro", "merchant":"Mercador", "collier":"Carvoeiro", "miner":"Mineiro", "smelter":"Fundidor", "blacksmith":"Ferreiro", "recruit":"Recruta"}
+const ROLE_DETAILS := {"builder":"Ergue as obras da vila", "servant":"Leva materiais e produção", "instructor":"Forma novos profissionais", "lumberjack":"Corta árvores e serra troncos", "stonecutter":"Extrai pedra", "farmer":"Cultiva alimentos e cereal", "vintner":"Cultiva uvas e produz vinho", "miller":"Moí cereal", "baker":"Asse pães", "merchant":"Vende o excedente por ouro", "collier":"Queima troncos em carvão", "miner":"Extrai minério de ferro", "smelter":"Funde ferro em barras", "blacksmith":"Forja espadas", "recruit":"Caminha até o quartel"}
+const ITEM_NAMES := {"wood":"Madeira", "stone":"Pedra", "food":"Alimentos", "grapes":"Uvas", "wine":"Vinho", "gold":"Ouro", "trunks":"Troncos", "corn":"Cereal", "flour":"Farinha", "loaves":"Pães", "charcoal":"Carvão", "ore":"Minério", "iron":"Ferro", "axe":"Machado", "bow":"Arco", "sword":"Espada", "population":"Moradores"}
+const SHORT_NAMES := {"house":"Casa", "farm":"Horta", "vineyard":"Parreiral", "winery":"Vinícola", "store":"Armazém", "lumber":"Lenhador", "quarry":"Pedreira", "training":"Escola", "inn":"Taverna", "sawmill":"Serraria", "mill":"Moinho", "bakery":"Padaria", "market":"Mercado", "kiln":"Carvoaria", "mine":"Mina", "foundry":"Fundição", "forge":"Forja", "workshop":"Armas", "barracks":"Quartel"}
+const BUILD_HINTS := {"house":"Abrigo", "farm":"Alimento e cereal", "vineyard":"O começo de cada vinho", "winery":"Uvas viram vinho", "store":"Depósito físico", "lumber":"Corta árvores", "quarry":"Pedra na jazida", "training":"Forma civis com ouro", "inn":"Os trabalhadores comem aqui", "sawmill":"Troncos viram madeira", "mill":"Cereal vira farinha", "bakery":"Farinha vira pão", "market":"Vende o excedente por ouro", "kiln":"Troncos viram carvão", "mine":"Minério na jazida de ferro", "foundry":"Minério e carvão viram ferro", "forge":"Espadas de ferro", "workshop":"Machados e arcos", "barracks":"Recrutas recebem armas"}
 
 ## Every card in a panel is a Button, and a Button swallows the touch drag, so
 ## a phone could only scroll in the gaps between cards. These forward the drag
@@ -146,6 +146,31 @@ class Glyph extends Control:
 				draw_colored_polygon(PackedVector2Array([Vector2(6,18),Vector2(20,6),Vector2(34,18)]),Color("ae6948"))
 				draw_rect(Rect2(17,24,8,10),dark)
 				draw_line(Vector2(28,20),Vector2(28,34),Color("7a5330"),3.0,true)
+			"charcoal", "kiln":
+				draw_colored_polygon(PackedVector2Array([Vector2(7,30),Vector2(11,14),Vector2(29,14),Vector2(33,30)]),Color("b9b2a0"))
+				draw_rect(Rect2(5,30,30,5),Color("8e8778"))
+				draw_colored_polygon(PackedVector2Array([Vector2(15,30),Vector2(17,20),Vector2(23,20),Vector2(25,30)]),dark)
+				draw_colored_polygon(PackedVector2Array([Vector2(17,30),Vector2(18,23),Vector2(22,23),Vector2(23,30)]),Color("e2762c"))
+				for p in [Vector2(9,24),Vector2(31,25),Vector2(30,20)]:
+					draw_circle(p,3.0,Color("22201f"))
+			"ore", "mine":
+				draw_colored_polygon(PackedVector2Array([Vector2(4,34),Vector2(9,13),Vector2(31,13),Vector2(36,34)]),Color("6f7a74"))
+				draw_colored_polygon(PackedVector2Array([Vector2(13,34),Vector2(15,17),Vector2(25,17),Vector2(27,34)]),dark)
+				for p in [Vector2(20,29),Vector2(15,32),Vector2(26,31)]:
+					draw_circle(p,4.2,Color("8a4a2c"))
+					draw_circle(p+Vector2(-1.2,-1.2),1.5,Color("b4713f"))
+			"iron", "foundry":
+				draw_rect(Rect2(6,26,28,7),Color("7f858b"))
+				draw_rect(Rect2(10,19,20,7),Color("9aa0a6"))
+				draw_rect(Rect2(14,12,12,7),Color("b6bcc2"))
+				for y in [19,26]:
+					draw_line(Vector2(6 if y==26 else 10,y),Vector2(34 if y==26 else 30,y),Color("5f666c"),1.2,true)
+			"sword", "forge":
+				draw_colored_polygon(PackedVector2Array([Vector2(20,3),Vector2(24,9),Vector2(24,26),Vector2(16,26),Vector2(16,9)]),Color("b6bcc2"))
+				draw_line(Vector2(20,5),Vector2(20,25),Color("7f858b"),1.4,true)
+				draw_rect(Rect2(10,26,20,4),Color("bb843e"))
+				draw_rect(Rect2(17,30,6,7),Color("7a5330"))
+				draw_circle(Vector2(20,37),2.6,gold)
 			"market":
 				draw_rect(Rect2(9,20,22,14),Color("d5c5a0"))
 				for i in range(4):
@@ -746,7 +771,7 @@ func _populate_training() -> void:
 	_role_grid.add_theme_constant_override("h_separation",8)
 	_role_grid.add_theme_constant_override("v_separation",8)
 	_drawer_content.add_child(_role_grid)
-	for role in ["builder","servant","farmer","vintner","lumberjack","stonecutter","miller","baker","merchant","recruit","instructor"]:
+	for role in ["builder","servant","farmer","vintner","lumberjack","stonecutter","miller","baker","merchant","collier","miner","smelter","blacksmith","recruit","instructor"]:
 		var button := _button(_role_grid,"",_train_role.bind(role))
 		button.custom_minimum_size.y = 96
 		button.size_flags_horizontal = Control.SIZE_EXPAND_FILL

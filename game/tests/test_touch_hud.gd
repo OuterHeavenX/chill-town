@@ -220,15 +220,28 @@ func run()->void:
 	expect(hud._available_build_kinds().has("market"),"the sandbox offers the market")
 	expect(hud.REPORT_ORDER.has("market"),"the report covers the market")
 	expect(tr("Mercado")=="Market" and tr("Mercador")=="Merchant","the market reads as English")
-	# --- The stone deposit is visible and highlighted while placing a quarry.
+	# --- Both seams are visible, and each tool lights only its own.
 	var rocks:Node3D=game.world.get_node_or_null("StoneDeposit")
-	expect(rocks!=null and rocks.get_child_count()==game.sim.stone_deposits.size(),"one granite outcrop per deposit cell")
+	var seam_cells:int=game.sim.stone_deposits.size()+game.sim.iron_deposits.size()
+	expect(rocks!=null and rocks.get_child_count()==seam_cells,"one outcrop per stone and iron cell (%d of %d)"%[rocks.get_child_count() if rocks!=null else -1,seam_cells])
 	game._select_build("quarry")
-	expect(game.world.deposit_highlight.get_child_count()>0,"quarry tool highlights the deposit cells")
+	# Each highlighted cell is drawn as four edge segments, not one node.
+	expect(game.world.deposit_highlight.get_child_count()==game.sim.stone_deposits.size()*4,"quarry tool highlights the stone cells")
 	expect(game.sim.can_place("quarry",Vector2i(10,17)).is_empty(),"a quarry fits just north of the deposit")
 	expect(not game.sim.can_place("quarry",Vector2i(4,4)).is_empty(),"a quarry away from the deposit is refused")
+	game._select_build("mine")
+	expect(game.world.deposit_highlight.get_child_count()==game.sim.iron_deposits.size()*4,"the mine tool highlights the iron cells instead")
+	expect(game.sim.can_place("mine",Vector2i(6,5)).is_empty(),"a mine fits against the iron seam")
+	expect(not game.sim.can_place("mine",Vector2i(10,17)).is_empty(),"the stone seam does not accept a mine")
 	game._select_build("")
-	expect(game.world.deposit_highlight.get_child_count()==0,"leaving the quarry tool clears the highlight")
+	expect(game.world.deposit_highlight.get_child_count()==0,"leaving the tool clears the highlight")
+	# --- The iron chain is offered and reads as English.
+	for kind in ["kiln","mine","foundry","forge"]:
+		expect(hud._available_build_kinds().has(kind),"the sandbox offers the "+kind)
+		expect(hud.REPORT_ORDER.has(kind),"the report covers the "+kind)
+		expect(not hud._definition(kind).is_empty(),"the "+kind+" has a definition to show")
+	expect(tr("Carvoaria")=="Charcoal burner" and tr("Fundição")=="Foundry","the iron buildings read as English")
+	expect(tr("Ferreiro")=="Blacksmith" and tr("Espada")=="Sword","the smith and the sword read as English")
 	# --- Desktop width returns to the full layout.
 	root.size=Vector2i(1280,800);await frames(4)
 	expect(hud._help_dock_button.visible and hud._resource_buttons.population.visible,"desktop layout restores every control")

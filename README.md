@@ -55,7 +55,11 @@ buildings, train professions, and expand the economy.
 - The school spends gold and trains new people.
 - Woodcutters harvest the nearest tree they can reach; the sawmill turns trunks into timber; quarries need a stone deposit.
 - Grain goes through mill and bakery to loaves; workers eat at the inn.
-- Barracks take recruits plus axes or bows. Army mode sets a company objective.
+- Barracks take recruits plus a weapon. Army mode sets a company objective.
+- The iron chain is the long way to a better soldier: a charcoal burner turns trunks
+  into charcoal, a mine digs ore from the northern seam, a foundry smelts the two into
+  iron, and the forge makes swords. A swordsman hits about twice as hard as militia with
+  an axe and carries more. Recruits take the best weapon in the store.
 - A market turns surplus wine, loaves and grapes into gold. It only sells what the
   village can spare, so the inn and the winery are never emptied to fund the school.
 - Menu → **Missions** lists four lessons. Each unlocks one more production chain and
@@ -121,6 +125,9 @@ in the code are Portuguese keys translated through `game/locale/en.json`.
   cells are highlighted while the quarry tool is active (it was invisible before).
 - Woodcutters pick the nearest tree they can actually stand beside. They used to take the
   closest trunk and stall for good when it was walled in by the middle of a grove.
+- Added the iron chain from the original art catalog, which was drawn but never built:
+  charcoal burner, iron mine, foundry and weapon forge, each modelled from its plate.
+  Weapons now have tiers that matter in a fight, where before every soldier was identical.
 - Added a market and a merchant, so gold is produced rather than only spent. Before
   this the village started with fifty coins, no way to earn more, and the school
   eventually stopped for good.

@@ -4,10 +4,10 @@ const Battle = preload("res://simulation/battle_sim.gd")
 const WIDTH := 36
 const HEIGHT := 28
 const SAVE_VERSION := 1
-const ITEMS := ["wood", "stone", "food", "grapes", "wine", "gold", "trunks", "corn", "flour", "loaves", "axe", "bow"]
-const ROLES := ["resident", "builder", "servant", "instructor", "lumberjack", "stonecutter", "farmer", "vintner", "miller", "baker", "merchant", "recruit"]
-const ROLE_NAMES := {"resident":"Morador", "builder":"Construtor", "servant":"Servente", "instructor":"Instrutor", "lumberjack":"Lenhador", "stonecutter":"Canteiro", "farmer":"Agricultor", "vintner":"Vinhateiro", "miller":"Moleiro", "baker":"Padeiro", "merchant":"Mercador", "recruit":"Recruta"}
-const ITEM_NAMES := {"wood":"madeira", "stone":"pedra", "food":"alimentos", "grapes":"uvas", "wine":"vinho", "gold":"ouro", "trunks":"troncos", "corn":"cereal", "flour":"farinha", "loaves":"pães", "axe":"machado", "bow":"arco"}
+const ITEMS := ["wood", "stone", "food", "grapes", "wine", "gold", "trunks", "corn", "flour", "loaves", "charcoal", "ore", "iron", "axe", "bow", "sword"]
+const ROLES := ["resident", "builder", "servant", "instructor", "lumberjack", "stonecutter", "farmer", "vintner", "miller", "baker", "merchant", "collier", "miner", "smelter", "blacksmith", "recruit"]
+const ROLE_NAMES := {"resident":"Morador", "builder":"Construtor", "servant":"Servente", "instructor":"Instrutor", "lumberjack":"Lenhador", "stonecutter":"Canteiro", "farmer":"Agricultor", "vintner":"Vinhateiro", "miller":"Moleiro", "baker":"Padeiro", "merchant":"Mercador", "collier":"Carvoeiro", "miner":"Mineiro", "smelter":"Fundidor", "blacksmith":"Ferreiro", "recruit":"Recruta"}
+const ITEM_NAMES := {"wood":"madeira", "stone":"pedra", "food":"alimentos", "grapes":"uvas", "wine":"vinho", "gold":"ouro", "trunks":"troncos", "corn":"cereal", "flour":"farinha", "loaves":"pães", "charcoal":"carvão", "ore":"minério", "iron":"ferro", "axe":"machado", "bow":"arco", "sword":"espada"}
 ## What the market pays per unit, and how much of each good the village keeps
 ## before any of it is allowed onto a market stall. The reserves are what stop
 ## the stalls from emptying the inn's larder or the winery's grape bins.
@@ -15,6 +15,26 @@ const MARKET_PRICES := {"wine": 8, "loaves": 4, "grapes": 2}
 const MARKET_RESERVE := {"wine": 8, "loaves": 12, "grapes": 12}
 const MARKET_SECONDS := 8.0
 const MARKET_STALL := 4
+## What each workshop makes, as [output item, amount, seconds, inputs]. Lifting
+## this out of the production routine lets deliveries read it too, so a new
+## building feeds itself without another hand-written branch in _assign_delivery.
+const RECIPES := {
+	"lumber": ["wood", 4, 8.0, {}],
+	"quarry": ["stone", 3, 10.0, {}],
+	"farm": ["food", 8, 10.0, {}],
+	"vineyard": ["grapes", 4, 12.0, {}],
+	"mine": ["ore", 2, 12.0, {}],
+	"winery": ["wine", 2, 10.0, {"grapes": 3}],
+	"sawmill": ["wood", 2, 10.0, {"trunks": 1}],
+	"mill": ["flour", 2, 10.0, {"corn": 3}],
+	"bakery": ["loaves", 2, 10.0, {"flour": 2}],
+	"kiln": ["charcoal", 4, 10.0, {"trunks": 1}],
+	"workshop": ["axe", 1, 12.0, {"wood": 2}],
+	"foundry": ["iron", 1, 12.0, {"ore": 2, "charcoal": 1}],
+	"forge": ["sword", 1, 14.0, {"iron": 1, "charcoal": 1, "wood": 1}]
+}
+## How much of each ingredient a workshop keeps on its own bench.
+const RECIPE_STOCK := 6
 var definitions: Dictionary = {
 	"hall": {"name":"Centro da vila", "description":"Administra a vila. Os moradores encontram trabalho sozinhos.", "cost":{}, "profession":"", "duration":12.0, "catalog_id":"bld_01_centro_da_vila"},
 	"house": {"name":"Casa", "description":"Abrigo civil. A população nova sai da escola, não das casas.", "cost":{"wood":4,"stone":2}, "profession":"", "duration":10.0, "catalog_id":"bld_02_casas"},
@@ -31,6 +51,10 @@ var definitions: Dictionary = {
 	"winery": {"name":"Vinícola", "description":"Um vinhateiro transforma 3 uvas em 2 vinhos a cada 10 segundos.", "cost":{"wood":12,"stone":6}, "profession":"vintner", "duration":16.0, "catalog_id":"bld_20_vinicola"},
 	"market": {"name":"Mercado", "description":"Um mercador vende o excedente da vila por ouro.", "cost":{"wood":10,"stone":6}, "profession":"merchant", "duration":14.0, "catalog_id":"bld_05_mercado"},
 	"workshop": {"name":"Oficina de armas", "description":"Faz machados e arcos com madeira.", "cost":{"wood":8,"stone":4}, "profession":"lumberjack", "duration":12.0, "catalog_id":"bld_22_carpintaria"},
+	"kiln": {"name":"Carvoaria", "description":"Fornos baixos transformam 1 tronco em 4 carvões. Disputa troncos com a serraria.", "cost":{"wood":6,"stone":4}, "profession":"collier", "duration":10.0, "catalog_id":"bld_09_carvoaria"},
+	"mine": {"name":"Mina de ferro", "description":"Extrai minério de ferro junto a uma jazida.", "cost":{"wood":8,"stone":6}, "profession":"miner", "duration":12.0, "catalog_id":"bld_10_mina_de_ferro"},
+	"foundry": {"name":"Fundição", "description":"Funde minério e carvão em barras de ferro.", "cost":{"wood":10,"stone":8}, "profession":"smelter", "duration":14.0, "catalog_id":"bld_11_fundicao"},
+	"forge": {"name":"Forja de armas", "description":"Forja espadas com ferro, carvão e madeira.", "cost":{"wood":10,"stone":8}, "profession":"blacksmith", "duration":14.0, "catalog_id":"bld_23_forja_de_armas"},
 	"barracks": {"name":"Quartel", "description":"Recrutas recebem machado ou arco e entram na companhia.", "cost":{"wood":12,"stone":8}, "profession":"recruit", "duration":16.0, "catalog_id":"bld_26_quartel"}
 }
 var tick := 0
@@ -57,6 +81,7 @@ var last_notice := ""
 var mission: RefCounted = null
 var harvest_map: RefCounted = null
 var stone_deposits: Array[Vector2i] = []
+var iron_deposits: Array[Vector2i] = []
 
 func setup(peaceful_mode: bool = false) -> void:
 	peaceful = peaceful_mode
@@ -195,6 +220,8 @@ func can_place(kind: String, cell: Vector2i) -> String:
 		return tr("Esta construção ainda não está disponível nesta missão.")
 	if not definitions.has(kind) or kind == "hall":
 		return tr("Construção desconhecida.")
+	if kind == "mine" and not iron_deposits.is_empty() and not _mine_has_deposit(cell):
+		return tr("A mina precisa encostar em uma jazida de ferro.")
 	if kind == "quarry" and not stone_deposits.is_empty() and not _quarry_has_deposit(cell):
 		return tr("A pedreira precisa ficar junto a uma jazida de pedra.")
 	if cell.x < 2 or cell.x > 19 or cell.y < 2 or cell.y > 23:
@@ -345,13 +372,23 @@ func footprint_size(_kind: String) -> Vector2i:
 
 
 func _quarry_has_deposit(cell: Vector2i) -> bool:
-	var size := footprint_size("quarry")
+	return _touches_deposit(cell, "quarry", stone_deposits)
+
+
+func _mine_has_deposit(cell: Vector2i) -> bool:
+	return _touches_deposit(cell, "mine", iron_deposits)
+
+
+## A pit only works against the seam it sits on, so its footprint has to touch
+## a deposit cell or share an edge with one.
+func _touches_deposit(cell: Vector2i, kind: String, deposits: Array[Vector2i]) -> bool:
+	var size := footprint_size(kind)
 	var dirs := [Vector2i.ZERO, Vector2i.RIGHT, Vector2i.LEFT, Vector2i.DOWN, Vector2i.UP]
 	for y in range(size.y):
 		for x in range(size.x):
 			var tile := cell + Vector2i(x, y)
 			for delta in dirs:
-				if stone_deposits.has(tile + delta):
+				if deposits.has(tile + delta):
 					return true
 	return false
 
@@ -368,9 +405,16 @@ func _recruit(role: String) -> Dictionary:
 		return _result(false,tr("Tipo de tropa inválido."))
 	if _completed("barracks") == 0:
 		return _result(false,tr("Construa um quartel para recrutar reforços."))
-	var kit := "axe" if role == "lancer" else "bow"
-	if available(kit) < 1:
-		return _result(false,tr("Falta o equipamento no armazém: {item}.").format({"item":tr(ITEM_NAMES[kit])}))
+	# Iron before wood: a swordsman outclasses the militia, so the armoury is
+	# emptied first and the axes are what is left over.
+	var kit := ""
+	for candidate: String in (["sword", "axe"] if role == "lancer" else ["bow"]):
+		if available(candidate) >= 1:
+			kit = candidate
+			break
+	if kit.is_empty():
+		var wanted: String = "sword" if role == "lancer" else "bow"
+		return _result(false,tr("Falta o equipamento no armazém: {item}.").format({"item":tr(ITEM_NAMES[wanted])}))
 	var recruit: Dictionary = {}
 	for w in workers:
 		if w.role != "recruit":
@@ -385,7 +429,7 @@ func _recruit(role: String) -> Dictionary:
 	if recruit.is_empty():
 		return _result(false,tr("Nenhum recruta chegou ao quartel. Forme recrutas na escola."))
 	_ensure_battle()
-	if battle == null or not battle.recruit(role):
+	if battle == null or not battle.recruit(role, kit):
 		return _result(false,tr("Companhia cheia ou ponto de reunião ocupado."))
 	_consume_stock(kit,1)
 	var barracks := _building(int(recruit.task.get("building",-1)))
@@ -641,35 +685,22 @@ func _assign_delivery(w: Dictionary) -> void:
 				if need > 0 and available(item) > 0:
 					if _transport(w,0,b.id,item,mini(2,mini(need,available(item)))):
 						return
-		if b.kind == "winery" and b.stage == "complete":
-			var need: int = 6-int(b.input.grapes)-_incoming(b.id,"grapes")
-			if need > 0 and available("grapes") > 0 and _transport(w,0,b.id,"grapes",mini(2,mini(need,available("grapes")))):
-				return
+		# Every workshop is fed from its own recipe, so winery, sawmill, mill,
+		# bakery, workshop and the whole iron chain share one rule.
+		if b.stage == "complete" and RECIPES.has(b.kind):
+			for item: String in RECIPES[b.kind][3]:
+				var need: int = RECIPE_STOCK-int(b.input.get(item,0))-_incoming(b.id,item)
+				if need > 0 and available(item) > 0 and _transport(w,0,b.id,item,mini(2,mini(need,available(item)))):
+					return
 		if b.kind == "training" and b.stage == "complete":
 			var gold_need: int = _school_gold_need(b)
 			if gold_need > 0 and available("gold") > 0 and _transport(w,0,b.id,"gold",mini(2,mini(gold_need,available("gold")))):
-				return
-		if b.kind == "sawmill" and b.stage == "complete":
-			var need: int = 6-int(b.input.get("trunks",0))-_incoming(b.id,"trunks")
-			if need > 0 and available("trunks") > 0 and _transport(w,0,b.id,"trunks",mini(2,mini(need,available("trunks")))):
-				return
-		if b.kind == "mill" and b.stage == "complete":
-			var need: int = 6-int(b.input.get("corn",0))-_incoming(b.id,"corn")
-			if need > 0 and available("corn") > 0 and _transport(w,0,b.id,"corn",mini(2,mini(need,available("corn")))):
-				return
-		if b.kind == "bakery" and b.stage == "complete":
-			var need: int = 6-int(b.input.get("flour",0))-_incoming(b.id,"flour")
-			if need > 0 and available("flour") > 0 and _transport(w,0,b.id,"flour",mini(2,mini(need,available("flour")))):
 				return
 		if b.kind == "inn" and b.stage == "complete":
 			for item in ["loaves", "food", "wine"]:
 				var room: int = 8-int(b.input.get(item,0))-_incoming(b.id,item)
 				if room > 0 and available(item) > 0 and _transport(w,0,b.id,item,mini(2,mini(room,available(item)))):
 					return
-		if b.kind == "workshop" and b.stage == "complete":
-			var wood_need: int = 6-int(b.input.get("wood",0))-_incoming(b.id,"wood")
-			if wood_need > 0 and available("wood") > 0 and _transport(w,0,b.id,"wood",mini(2,mini(wood_need,available("wood")))):
-				return
 		if b.kind == "market" and b.stage == "complete":
 			for item: String in MARKET_PRICES:
 				var spare: int = market_spare(item)
@@ -690,7 +721,7 @@ func _assign_export(w: Dictionary) -> bool:
 		ordered.sort_custom(func(a,b): return a.kind == "farm" and b.kind != "farm")
 	for b in ordered:
 		for item in ITEMS:
-			var target: int = {"wood":100,"stone":60,"food":120,"grapes":24,"wine":32,"gold":120,"trunks":24,"corn":24,"flour":16,"loaves":24,"axe":8,"bow":8}.get(item, 12)
+			var target: int = {"wood":100,"stone":60,"food":120,"grapes":24,"wine":32,"gold":120,"trunks":24,"corn":24,"flour":16,"loaves":24,"charcoal":24,"ore":24,"iron":16,"axe":8,"bow":8,"sword":8}.get(item, 12)
 			if int(stock.get(item,0))+_incoming(0,item) >= target:
 				continue
 			var free: int = int(b.output.get(item,0))-_outgoing(b.id,item)
@@ -972,35 +1003,27 @@ func _produce(w: Dictionary, b: Dictionary) -> void:
 	if b.kind == "quarry" and not stone_deposits.is_empty() and not _quarry_has_deposit(b.cell):
 		w.state = tr("Pedreira sem jazida")
 		return
-	var recipes := {
-		"lumber": ["wood", 4, 8.0, "", 0],
-		"quarry": ["stone", 3, 10.0, "", 0],
-		"farm": ["food", 8, 10.0, "", 0],
-		"vineyard": ["grapes", 4, 12.0, "", 0],
-		"winery": ["wine", 2, 10.0, "grapes", 3],
-		"sawmill": ["wood", 2, 10.0, "trunks", 1],
-		"mill": ["flour", 2, 10.0, "corn", 3],
-		"bakery": ["loaves", 2, 10.0, "flour", 2],
-		"workshop": ["axe", 1, 12.0, "wood", 2]
-	}
-	if not recipes.has(b.kind):
+	if b.kind == "mine" and not iron_deposits.is_empty() and not _mine_has_deposit(b.cell):
+		w.state = tr("Mina sem jazida")
 		return
-	var recipe: Array = recipes[b.kind]
+	if not RECIPES.has(b.kind):
+		return
+	var recipe: Array = RECIPES[b.kind]
 	if int(b.output.get(recipe[0], 0)) >= 20:
 		w.state = tr("Aguardando retirada da produção")
 		return
-	var need_item: String = str(recipe[3])
-	var need_amount: int = int(recipe[4])
-	if not need_item.is_empty() and int(b.input.get(need_item, 0)) < need_amount:
-		w.state = tr("Aguardando {item}").format({"item": tr(str(ITEM_NAMES[need_item] if ITEM_NAMES.has(need_item) else need_item))})
-		return
+	var inputs: Dictionary = recipe[3]
+	for item: String in inputs:
+		if int(b.input.get(item, 0)) < int(inputs[item]):
+			w.state = tr("Aguardando {item}").format({"item": tr(str(ITEM_NAMES.get(item, item)))})
+			return
 	w.state = tr("Produzindo {item}").format({"item": tr(ITEM_NAMES[recipe[0]])})
 	b.production += 0.1 / float(recipe[2])
 	if b.production >= 1.0:
 		b.production = 0.0
-		if not need_item.is_empty():
-			b.input[need_item] -= need_amount
-			consumed[need_item] += need_amount
+		for item: String in inputs:
+			b.input[item] -= int(inputs[item])
+			consumed[item] += int(inputs[item])
 		b.output[recipe[0]] += int(recipe[1])
 		produced[recipe[0]] += int(recipe[1])
 		if b.kind == "farm":
@@ -1250,8 +1273,13 @@ func _apply(s: Dictionary) -> void:
 	workers.assign(s.workers)
 	training.assign(s.training)
 	events.assign(s.events)
-	for field in ["stock","reserved","consumed","produced","initial","stats"]:
-		set(field,s[field].duplicate(true))
+	for field in ["stock","reserved","consumed","produced","initial"]:
+		# A save written before a ware existed simply has none of it.
+		var restored: Dictionary = _empty_items()
+		for item: String in ITEMS:
+			restored[item] = int(s[field].get(item, 0))
+		set(field,restored)
+	stats = s.stats.duplicate(true)
 	won = s.won
 	lost = s.lost
 	paused = s.paused
@@ -1291,7 +1319,7 @@ func _valid_save(s: Dictionary) -> bool:
 		if not s.get(key) is Dictionary:
 			return false
 		for item in ITEMS:
-			if not _safe_int(s[key].get(item)):
+			if s[key].has(item) and not _safe_int(s[key][item]):
 				return false
 	if not s.get("stats") is Dictionary:
 		return false
