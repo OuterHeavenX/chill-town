@@ -172,6 +172,54 @@ func run()->void:
 	expect(tr("Precisa de {role}").format({"role":"instructor"})=="Needs one instructor","the worker line reads as English")
 	hud.close_panels();await frames(2)
 	expect(not hud._report.visible,"closing the panels hides the report")
+	# --- The campaign list offers every lesson plus the free village.
+	hud._show_missions();await frames(4)
+	expect(hud._missions.visible,"the mission list opens")
+	var mission_rows:=0
+	for child in hud._missions_body.get_children():
+		if child is PanelContainer:mission_rows+=1
+	expect(mission_rows==hud.MissionSpec.CAMPAIGN.size()+1,"one row per lesson plus the free village (%d)"%mission_rows)
+	expect(hud._missions.position.x>=0.0 and hud._missions.position.x+hud._missions.size.x<=root.size.x+0.5,"the mission list fits the phone width")
+	expect(hud._missions.position.y+hud._missions.size.y<=root.size.y+0.5,"the mission list fits the phone height")
+	expect(hud._missions.get_combined_minimum_size().x<=hud._missions.size.x+0.5,"nothing widens the mission list past the screen")
+	var mission_row:Control=null
+	for child in hud._missions_body.get_children():
+		if child is PanelContainer:mission_row=child;break
+	var mission_grip:Vector2=mission_row.get_global_rect().get_center()
+	push_touch(true,mission_grip)
+	for step in range(6):
+		push_drag(mission_grip-Vector2(0,12.0*(step+1)),Vector2(0,-12))
+	push_touch(false,mission_grip-Vector2(0,72))
+	await frames(2)
+	expect(hud._missions_scroll.scroll_vertical>0,"a drag on a lesson card scrolls the list")
+	hud.close_panels();await frames(2)
+	expect(not hud._missions.visible,"closing the panels hides the mission list")
+	# --- Every shipped mission fits the objectives panel. A mission with more
+	# objectives than the panel has rows silently hides the rest of the list.
+	var longest:=0
+	for mission_id in hud.MissionSpec.CAMPAIGN:
+		var spec:RefCounted=hud.MissionSpec.load_id(mission_id)
+		expect(spec!=null,"%s loads"%mission_id)
+		if spec!=null:longest=maxi(longest,spec.objectives.size())
+	expect(longest>0,"the campaign has objectives to show")
+	expect(hud._objective_labels.size()>=longest,"the objectives panel has a row per objective (%d rows, longest mission %d)"%[hud._objective_labels.size(),longest])
+	expect(game.sim.command("load_mission",{"id":"tsk-03"}).ok,"the wine lesson loads into the running game")
+	hud.refresh();await frames(2)
+	var shown:=0
+	var counted:=0
+	for label in hud._objective_labels:
+		if label.visible:
+			shown+=1
+			if str(label.text).contains("/"):counted+=1
+	expect(shown==6,"all six of the wine lesson's objectives are on screen (%d)"%shown)
+	expect(counted==2,"the counted objectives print have/need (%d)"%counted)
+	expect(str(hud._objectives_toggle.text).contains("0/6"),"the header counts every objective: "+str(hud._objectives_toggle.text))
+	expect(game.sim.command("new_game",{}).ok,"the sandbox comes back")
+	hud.refresh();await frames(2)
+	# --- The market is offered in the build drawer and on the report.
+	expect(hud._available_build_kinds().has("market"),"the sandbox offers the market")
+	expect(hud.REPORT_ORDER.has("market"),"the report covers the market")
+	expect(tr("Mercado")=="Market" and tr("Mercador")=="Merchant","the market reads as English")
 	# --- The stone deposit is visible and highlighted while placing a quarry.
 	var rocks:Node3D=game.world.get_node_or_null("StoneDeposit")
 	expect(rocks!=null and rocks.get_child_count()==game.sim.stone_deposits.size(),"one granite outcrop per deposit cell")

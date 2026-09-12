@@ -56,7 +56,10 @@ buildings, train professions, and expand the economy.
 - Woodcutters harvest the nearest tree they can reach; the sawmill turns trunks into timber; quarries need a stone deposit.
 - Grain goes through mill and bakery to loaves; workers eat at the inn.
 - Barracks take recruits plus axes or bows. Army mode sets a company objective.
-- Menu → first lesson locks the farm/wine chain until school, inn, woodcutter and quarry exist.
+- A market turns surplus wine, loaves and grapes into gold. It only sells what the
+  village can spare, so the inn and the winery are never emptied to fund the school.
+- Menu → **Missions** lists four lessons. Each unlocks one more production chain and
+  locks the ones it has not taught yet; the free village has everything from the start.
 - The **Buildings** report lists every structure, how many you have standing or under
   way, what each one produces, its cost and the worker it needs. It sits in the dock on
   wide screens and under Menu → Village buildings everywhere else.
@@ -118,6 +121,12 @@ in the code are Portuguese keys translated through `game/locale/en.json`.
   cells are highlighted while the quarry tool is active (it was invisible before).
 - Woodcutters pick the nearest tree they can actually stand beside. They used to take the
   closest trunk and stall for good when it was walled in by the middle of a grove.
+- Added a market and a merchant, so gold is produced rather than only spent. Before
+  this the village started with fifty coins, no way to earn more, and the school
+  eventually stopped for good.
+- Added three more missions and real objective types: produce an amount, reach a
+  stock level, grow the population, train a role, or keep the village running for a
+  time. Counted objectives show progress, not just a checkbox.
 - Added a village buildings report: counts per structure and what each one offers, so you
   do not have to tap buildings one by one to find out. Reached from the dock on wide
   screens and from the menu everywhere else.

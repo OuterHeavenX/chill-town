@@ -457,7 +457,7 @@ func _has_pending_road_delivery() -> bool:
 	# A producer existing does not imply work: its output may be empty, reserved,
 	# or already stocked to its target. Idle servants should keep access clear.
 	var can_export := _storage_used()+_incoming(0,"food") < storage_capacity()
-	var export_targets := {"wood":100,"stone":60,"food":_food_stock_target(),"grapes":24,"wine":32,"gold":40,"trunks":24,"corn":24,"flour":16,"loaves":24,"axe":8,"bow":8}
+	var export_targets := {"wood":100,"stone":60,"food":_food_stock_target(),"grapes":24,"wine":32,"gold":120,"trunks":24,"corn":24,"flour":16,"loaves":24,"axe":8,"bow":8}
 	for building in buildings:
 		if not _connected_roads.has(building.entrance):
 			continue
@@ -483,6 +483,10 @@ func _has_pending_road_delivery() -> bool:
 					return true
 		if building.kind == "workshop" and building.stage == "complete" and 6-int(building.input.get("wood",0))-_incoming(building.id,"wood") > 0 and available("wood") > 0:
 			return true
+		if building.kind == "market" and building.stage == "complete":
+			for item: String in MARKET_PRICES:
+				if MARKET_STALL-int(building.input.get(item,0))-_incoming(building.id,item) > 0 and market_spare(item) > 0:
+					return true
 		for item in ITEMS:
 			if int(building.output[item])-_outgoing(building.id,item) <= 0:
 				continue

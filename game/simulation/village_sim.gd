@@ -5,9 +5,16 @@ const WIDTH := 36
 const HEIGHT := 28
 const SAVE_VERSION := 1
 const ITEMS := ["wood", "stone", "food", "grapes", "wine", "gold", "trunks", "corn", "flour", "loaves", "axe", "bow"]
-const ROLES := ["resident", "builder", "servant", "instructor", "lumberjack", "stonecutter", "farmer", "vintner", "miller", "baker", "recruit"]
-const ROLE_NAMES := {"resident":"Morador", "builder":"Construtor", "servant":"Servente", "instructor":"Instrutor", "lumberjack":"Lenhador", "stonecutter":"Canteiro", "farmer":"Agricultor", "vintner":"Vinhateiro", "miller":"Moleiro", "baker":"Padeiro", "recruit":"Recruta"}
+const ROLES := ["resident", "builder", "servant", "instructor", "lumberjack", "stonecutter", "farmer", "vintner", "miller", "baker", "merchant", "recruit"]
+const ROLE_NAMES := {"resident":"Morador", "builder":"Construtor", "servant":"Servente", "instructor":"Instrutor", "lumberjack":"Lenhador", "stonecutter":"Canteiro", "farmer":"Agricultor", "vintner":"Vinhateiro", "miller":"Moleiro", "baker":"Padeiro", "merchant":"Mercador", "recruit":"Recruta"}
 const ITEM_NAMES := {"wood":"madeira", "stone":"pedra", "food":"alimentos", "grapes":"uvas", "wine":"vinho", "gold":"ouro", "trunks":"troncos", "corn":"cereal", "flour":"farinha", "loaves":"pães", "axe":"machado", "bow":"arco"}
+## What the market pays per unit, and how much of each good the village keeps
+## before any of it is allowed onto a market stall. The reserves are what stop
+## the stalls from emptying the inn's larder or the winery's grape bins.
+const MARKET_PRICES := {"wine": 8, "loaves": 4, "grapes": 2}
+const MARKET_RESERVE := {"wine": 8, "loaves": 12, "grapes": 12}
+const MARKET_SECONDS := 8.0
+const MARKET_STALL := 4
 var definitions: Dictionary = {
 	"hall": {"name":"Centro da vila", "description":"Administra a vila. Os moradores encontram trabalho sozinhos.", "cost":{}, "profession":"", "duration":12.0, "catalog_id":"bld_01_centro_da_vila"},
 	"house": {"name":"Casa", "description":"Abrigo civil. A população nova sai da escola, não das casas.", "cost":{"wood":4,"stone":2}, "profession":"", "duration":10.0, "catalog_id":"bld_02_casas"},
@@ -22,6 +29,7 @@ var definitions: Dictionary = {
 	"bakery": {"name":"Padaria", "description":"Transforma farinha em pães para a taverna.", "cost":{"wood":8,"stone":4}, "profession":"baker", "duration":12.0, "catalog_id":"bld_15_padaria"},
 	"vineyard": {"name":"Parreiral", "description":"Um vinhateiro colhe 4 uvas a cada 12 segundos.", "cost":{"wood":8,"stone":2}, "profession":"vintner", "duration":12.0, "catalog_id":"kit_03_lavouras_e_vinhedos"},
 	"winery": {"name":"Vinícola", "description":"Um vinhateiro transforma 3 uvas em 2 vinhos a cada 10 segundos.", "cost":{"wood":12,"stone":6}, "profession":"vintner", "duration":16.0, "catalog_id":"bld_20_vinicola"},
+	"market": {"name":"Mercado", "description":"Um mercador vende o excedente da vila por ouro.", "cost":{"wood":10,"stone":6}, "profession":"merchant", "duration":14.0, "catalog_id":"bld_05_mercado"},
 	"workshop": {"name":"Oficina de armas", "description":"Faz machados e arcos com madeira.", "cost":{"wood":8,"stone":4}, "profession":"lumberjack", "duration":12.0, "catalog_id":"bld_22_carpintaria"},
 	"barracks": {"name":"Quartel", "description":"Recrutas recebem machado ou arco e entram na companhia.", "cost":{"wood":12,"stone":8}, "profession":"recruit", "duration":16.0, "catalog_id":"bld_26_quartel"}
 }
@@ -74,7 +82,7 @@ func setup(peaceful_mode: bool = false) -> void:
 	reserved = _empty_items()
 	consumed = _empty_items()
 	produced = _empty_items()
-	stats = {"houses_built":0,"wine_delivered":0,"food_produced":0}
+	stats = {"houses_built":0,"wine_delivered":0,"food_produced":0,"gold_earned":0}
 	food_shortage = 0
 	arrival_ticks = 0
 	last_notice = ""
@@ -455,7 +463,7 @@ func step() -> void:
 			lost = true
 			_emit(tr("A companhia foi derrotada."), "chime")
 	if not won:
-		if mission != null and mission.has_method("objectives_met") and mission.objectives_met(_completed_counts()):
+		if mission != null and mission.has_method("objectives_met") and mission.objectives_met(mission_state()):
 			won = true
 			_emit(tr("Objetivos da missão cumpridos. A vila pode continuar."))
 		elif mission == null and _completed("training") > 0 and _completed("inn") > 0 and _completed("lumber") > 0 and _completed("quarry") > 0:
@@ -662,6 +670,12 @@ func _assign_delivery(w: Dictionary) -> void:
 			var wood_need: int = 6-int(b.input.get("wood",0))-_incoming(b.id,"wood")
 			if wood_need > 0 and available("wood") > 0 and _transport(w,0,b.id,"wood",mini(2,mini(wood_need,available("wood")))):
 				return
+		if b.kind == "market" and b.stage == "complete":
+			for item: String in MARKET_PRICES:
+				var spare: int = market_spare(item)
+				var stall: int = MARKET_STALL-int(b.input.get(item,0))-_incoming(b.id,item)
+				if stall > 0 and spare > 0 and _transport(w,0,b.id,item,mini(2,mini(stall,spare))):
+					return
 	_assign_export(w)
 
 func _assign_export(w: Dictionary) -> bool:
@@ -676,7 +690,7 @@ func _assign_export(w: Dictionary) -> bool:
 		ordered.sort_custom(func(a,b): return a.kind == "farm" and b.kind != "farm")
 	for b in ordered:
 		for item in ITEMS:
-			var target: int = {"wood":100,"stone":60,"food":120,"grapes":24,"wine":32,"gold":40,"trunks":24,"corn":24,"flour":16,"loaves":24,"axe":8,"bow":8}.get(item, 12)
+			var target: int = {"wood":100,"stone":60,"food":120,"grapes":24,"wine":32,"gold":120,"trunks":24,"corn":24,"flour":16,"loaves":24,"axe":8,"bow":8}.get(item, 12)
 			if int(stock.get(item,0))+_incoming(0,item) >= target:
 				continue
 			var free: int = int(b.output.get(item,0))-_outgoing(b.id,item)
@@ -890,6 +904,23 @@ func _chop_tree(w: Dictionary, hut: Dictionary) -> void:
 	_go(w, w.goal)
 
 
+## Everything a mission objective is allowed to look at. One snapshot per query
+## keeps the loader free of any knowledge of how the simulation stores its state.
+func mission_state() -> Dictionary:
+	var roles := {}
+	for w in workers:
+		var role := str(w.get("role", ""))
+		roles[role] = int(roles.get(role, 0)) + 1
+	return {
+		"completed": _completed_counts(),
+		"produced": produced.duplicate(),
+		"stock": stock.duplicate(),
+		"roles": roles,
+		"population": workers.size(),
+		"seconds": tick / 10,
+	}
+
+
 func _completed_counts() -> Dictionary:
 	var counts := {}
 	for b in buildings:
@@ -935,6 +966,9 @@ func _produce(w: Dictionary, b: Dictionary) -> void:
 		w.task = {"type": "harvest", "building": b.id, "tree": tree}
 		_chop_tree(w, b)
 		return
+	if b.kind == "market":
+		_sell(w, b)
+		return
 	if b.kind == "quarry" and not stone_deposits.is_empty() and not _quarry_has_deposit(b.cell):
 		w.state = tr("Pedreira sem jazida")
 		return
@@ -978,6 +1012,41 @@ func _produce(w: Dictionary, b: Dictionary) -> void:
 			produced.axe -= 1
 			b.output.bow = int(b.output.get("bow", 0)) + 1
 			produced.bow += 1
+
+
+func _sell(w: Dictionary, b: Dictionary) -> void:
+	## A stall sells one unit at a time and pays into the market's own output, so
+	## the gold travels back to the store on a servant's back like any other good.
+	if int(b.output.get("gold", 0)) >= 20:
+		w.state = tr("Aguardando retirada da produção")
+		return
+	var sale := ""
+	for item in MARKET_PRICES:
+		if int(b.input.get(item, 0)) > 0:
+			sale = str(item)
+			break
+	if sale.is_empty():
+		w.state = tr("Aguardando mercadorias para vender")
+		return
+	w.state = tr("Vendendo {item}").format({"item": tr(str(ITEM_NAMES.get(sale, sale)))})
+	b.production += 0.1 / MARKET_SECONDS
+	if b.production < 1.0:
+		return
+	b.production = 0.0
+	b.input[sale] -= 1
+	consumed[sale] += 1
+	var price := int(MARKET_PRICES[sale])
+	b.output.gold = int(b.output.get("gold", 0)) + price
+	produced.gold += price
+	stats.gold_earned = int(stats.get("gold_earned", 0)) + price
+
+
+func market_spare(item: String) -> int:
+	## Goods the market may take: what is free in the store beyond the reserve the
+	## village keeps for the inn, the winery and the school.
+	if not MARKET_PRICES.has(item):
+		return 0
+	return maxi(0, available(item) - int(MARKET_RESERVE.get(item, 0)))
 
 
 func _tree_has_stand(tree: Vector2i) -> bool:
@@ -1089,11 +1158,13 @@ func notice() -> String:
 func objective_rows() -> Array[Dictionary]:
 	if mission != null:
 		var rows: Array[Dictionary] = []
+		var state := mission_state()
 		for row in mission.objectives:
-			var kind := str(row.get("kind", ""))
-			var need := int(row.get("count", 1))
-			var have := _completed(kind)
-			rows.append({"text": tr(str(row.get("text", kind))), "done": have >= need})
+			var progress: Vector2i = mission.measure(row, state)
+			var text := tr(str(row.get("text", row.get("kind", ""))))
+			if mission.shows_progress(row):
+				text += "  %d/%d" % [progress.x, progress.y]
+			rows.append({"text": text, "done": progress.x >= progress.y})
 		return rows
 	return [
 		{"text":tr("Construir a escola"),"done":_completed("training")>0},

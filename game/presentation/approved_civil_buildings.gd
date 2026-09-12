@@ -4,8 +4,8 @@ extends RefCounted
 const Core = preload("res://presentation/approved_buildings.gd")
 const Base = preload("res://presentation/approved_primitives.gd")
 const EarthYard = preload("res://presentation/approved_earth_yard.gd")
-const KINDS := ["house","store","lumber","sawmill","quarry","farm","vineyard","winery","inn","mill","bakery","workshop","barracks"]
-const IDS := {"house":"bld_02_casas","store":"bld_03_armazem","lumber":"bld_06_cabana_do_lenhador","sawmill":"bld_07_serraria","quarry":"bld_08_pedreira","farm":"bld_12_horta","vineyard":"kit_03_lavouras_e_vinhedos","winery":"bld_20_vinicola","inn":"bld_19_taverna","mill":"bld_14_moinho","bakery":"bld_15_padaria","workshop":"bld_22_carpintaria","barracks":"bld_26_quartel"}
+const KINDS := ["house","store","lumber","sawmill","quarry","farm","vineyard","winery","inn","mill","bakery","market","workshop","barracks"]
+const IDS := {"house":"bld_02_casas","store":"bld_03_armazem","lumber":"bld_06_cabana_do_lenhador","sawmill":"bld_07_serraria","quarry":"bld_08_pedreira","farm":"bld_12_horta","vineyard":"kit_03_lavouras_e_vinhedos","winery":"bld_20_vinicola","inn":"bld_19_taverna","mill":"bld_14_moinho","bakery":"bld_15_padaria","market":"bld_05_mercado","workshop":"bld_22_carpintaria","barracks":"bld_26_quartel"}
 const WOOD := Color("81582f")
 const DARK_WOOD := Color("4d3521")
 const LIGHT_WOOD := Color("ae8248")
@@ -35,6 +35,7 @@ static func building(kind: String) -> Node3D:
 			"inn": _inn(b)
 			"mill": _mill(b)
 			"bakery": _bakery(b)
+			"market": _market(b)
 			"workshop": _workshop(b)
 			"barracks": _barracks(b)
 		for key in Base.MATERIAL_KEYS:
@@ -278,6 +279,52 @@ static func _house(b) -> void:
 		b.quad(Vector3(-1.86,1.78,z),Vector3(-1.84,1.22,z),Vector3(-1.84,1.20,z+0.26),Vector3(-1.86,1.78,z+0.26),"cloth" if i%2 == 0 else "plaster",TEAL if i%2 == 0 else PLASTER)
 	_box(b,Vector3(-1.57,0.64,2.04),Vector3(0.075,0.9,0.075),WOOD)
 	_box(b,Vector3(-1.57,1.00,2.04),Vector3(0.30,0.22,0.22),LIGHT_WOOD)
+
+## Catalog plate bld_05_mercado: a tiled hall behind a row of teal-striped stall
+## awnings, produce and sacks on the counters, a cart waiting at the delivery side.
+static func _market(b) -> void:
+	_base(b,4.66,true)
+	var at := Vector3(0.0,0.23,-0.76)
+	Core._masonry(b,at,2.46,1.86,1.10)
+	_plaster_floor(b,at+Vector3.UP*1.16,2.48,1.88,1.62,true)
+	_roof(b,at+Vector3.UP*2.84,3.04,2.36,1.14,true)
+	Core._chimney(b,Vector3(1.04,3.10,-1.34),1.26,0.44)
+	Core._banner(b,Vector3(0.0,3.12,0.46),0.44,0.76)
+	Core._door(b,Vector3(0.0,0.33,0.22),0.78,1.82)
+	Core._steps(b,Vector3(0.0,0.17,0.46),0.98,3)
+	Core._small_window(b,Vector3(-0.80,2.22,0.18),0.40,0.52)
+	Core._small_window(b,Vector3(0.82,2.22,0.18),0.40,0.52)
+	# Two stall bays flank the door, the way the reference sheet lays them out.
+	for side in [-1.0, 1.0]:
+		var x: float = side*1.46
+		_box(b,Vector3(x,0.62,0.98),Vector3(1.32,0.58,1.06),WOOD)
+		_box(b,Vector3(x,0.94,0.98),Vector3(1.40,0.10,1.14),LIGHT_WOOD)
+		for z in [0.50,1.46]:
+			_box(b,Vector3(x-0.60,1.42,z),Vector3(0.11,1.68,0.11),DARK_WOOD)
+			_box(b,Vector3(x+0.60,1.42,z),Vector3(0.11,1.68,0.11),DARK_WOOD)
+		_beam(b,Vector3(x-0.62,2.24,0.50),Vector3(x+0.62,2.24,0.50),0.09,WOOD)
+		_awning(b,Vector3(x,2.26,0.56),1.44,1.16,0.30,0.0,false)
+		Base._crate(b,Vector3(x-0.40,1.14,0.72),0.74)
+		Base._crate(b,Vector3(x+0.34,1.14,0.70),0.70)
+		for i in range(3):
+			_sack(b,Vector3(x-0.46+i*0.44,1.12,1.30),b.rng.randf_range(0.62,0.82))
+		_sack(b,Vector3(x+0.66*side,0.22,1.62),b.rng.randf_range(0.84,1.04))
+		Base._barrel(b,Vector3(x-0.72*side,0.20,1.72),0.70)
+	# The trade sign on its post, and the goods waiting to be carted away.
+	_box(b,Vector3(-2.34,1.34,2.06),Vector3(0.13,2.28,0.13),DARK_WOOD)
+	_beam(b,Vector3(-2.34,2.36,2.06),Vector3(-1.78,2.36,2.06),0.07,WOOD)
+	_box(b,Vector3(-1.94,2.02,2.06),Vector3(0.46,0.44,0.05),Color("c4b387"),"plaster")
+	# The trader's scales, standing proud of the board so it reads from the camera.
+	_box(b,Vector3(-1.94,2.10,2.10),Vector3(0.34,0.04,0.03),GOLD)
+	_box(b,Vector3(-1.94,2.16,2.10),Vector3(0.04,0.16,0.03),GOLD)
+	for pan in [-0.15, 0.15]:
+		_box(b,Vector3(-1.94+pan,2.02,2.10),Vector3(0.03,0.13,0.03),GOLD)
+		_box(b,Vector3(-1.94+pan,1.94,2.10),Vector3(0.14,0.04,0.03),GOLD)
+	for i in range(3):
+		Base._crate(b,Vector3(2.08,0.22+i*0.42,-0.28),0.78)
+	for pair in [[Vector3(-2.12,0.18,-1.86),Vector3(-2.12,0.18,-0.36)],[Vector3(2.12,0.18,-1.86),Vector3(2.12,0.18,-0.92)]]:
+		_yard_fence(b,pair[0],pair[1],0.52)
+
 
 static func _store(b) -> void:
 	_base(b,7.08,true)

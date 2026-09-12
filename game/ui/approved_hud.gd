@@ -12,6 +12,8 @@ signal entrance_highlighted(cell: Vector2i)
 signal language_changed
 signal camera_requested(kind: String)
 
+const MissionSpec := preload("res://simulation/mission_spec.gd")
+
 const PAPER := Color("f5e4bd")
 const PANEL := Color("0b2429")
 const INK := Color("f1dfb4")
@@ -21,13 +23,15 @@ const WINE := Color("e1bd71")
 const DANGER := Color("eeaa89")
 const SUCCESS := Color("b8d292")
 ## Reading order for the village report: the core first, then each chain.
-const REPORT_ORDER := ["hall", "training", "house", "inn", "store", "lumber", "sawmill", "quarry", "farm", "mill", "bakery", "vineyard", "winery", "workshop", "barracks"]
-const BUILD_ORDER := ["lumber", "sawmill", "quarry", "farm", "mill", "bakery", "inn", "house", "vineyard", "winery", "store", "workshop", "barracks", "training"]
-const ROLE_NAMES := {"resident":"Morador", "builder":"Construtor", "servant":"Servente", "instructor":"Instrutor", "lumberjack":"Lenhador", "stonecutter":"Canteiro", "farmer":"Horticultor", "vintner":"Vinhateiro", "miller":"Moleiro", "baker":"Padeiro", "recruit":"Recruta"}
-const ROLE_DETAILS := {"builder":"Ergue as obras da vila", "servant":"Leva materiais e produção", "instructor":"Forma novos profissionais", "lumberjack":"Corta árvores e serra troncos", "stonecutter":"Extrai pedra", "farmer":"Cultiva alimentos e cereal", "vintner":"Cultiva uvas e produz vinho", "miller":"Moí cereal", "baker":"Asse pães", "recruit":"Caminha até o quartel"}
+## The most objectives any one mission may ask for.
+const OBJECTIVE_ROWS := 8
+const REPORT_ORDER := ["hall", "training", "house", "inn", "store", "lumber", "sawmill", "quarry", "farm", "mill", "bakery", "vineyard", "winery", "market", "workshop", "barracks"]
+const BUILD_ORDER := ["lumber", "sawmill", "quarry", "farm", "mill", "bakery", "inn", "house", "vineyard", "winery", "market", "store", "workshop", "barracks", "training"]
+const ROLE_NAMES := {"resident":"Morador", "builder":"Construtor", "servant":"Servente", "instructor":"Instrutor", "lumberjack":"Lenhador", "stonecutter":"Canteiro", "farmer":"Horticultor", "vintner":"Vinhateiro", "miller":"Moleiro", "baker":"Padeiro", "merchant":"Mercador", "recruit":"Recruta"}
+const ROLE_DETAILS := {"builder":"Ergue as obras da vila", "servant":"Leva materiais e produção", "instructor":"Forma novos profissionais", "lumberjack":"Corta árvores e serra troncos", "stonecutter":"Extrai pedra", "farmer":"Cultiva alimentos e cereal", "vintner":"Cultiva uvas e produz vinho", "miller":"Moí cereal", "baker":"Asse pães", "merchant":"Vende o excedente por ouro", "recruit":"Caminha até o quartel"}
 const ITEM_NAMES := {"wood":"Madeira", "stone":"Pedra", "food":"Alimentos", "grapes":"Uvas", "wine":"Vinho", "gold":"Ouro", "trunks":"Troncos", "corn":"Cereal", "flour":"Farinha", "loaves":"Pães", "axe":"Machado", "bow":"Arco", "population":"Moradores"}
-const SHORT_NAMES := {"house":"Casa", "farm":"Horta", "vineyard":"Parreiral", "winery":"Vinícola", "store":"Armazém", "lumber":"Lenhador", "quarry":"Pedreira", "training":"Escola", "inn":"Taverna", "sawmill":"Serraria", "mill":"Moinho", "bakery":"Padaria", "workshop":"Armas", "barracks":"Quartel"}
-const BUILD_HINTS := {"house":"Abrigo", "farm":"Alimento e cereal", "vineyard":"O começo de cada vinho", "winery":"Uvas viram vinho", "store":"Depósito físico", "lumber":"Corta árvores", "quarry":"Pedra na jazida", "training":"Forma civis com ouro", "inn":"Os trabalhadores comem aqui", "sawmill":"Troncos viram madeira", "mill":"Cereal vira farinha", "bakery":"Farinha vira pão", "workshop":"Machados e arcos", "barracks":"Recrutas recebem armas"}
+const SHORT_NAMES := {"house":"Casa", "farm":"Horta", "vineyard":"Parreiral", "winery":"Vinícola", "store":"Armazém", "lumber":"Lenhador", "quarry":"Pedreira", "training":"Escola", "inn":"Taverna", "sawmill":"Serraria", "mill":"Moinho", "bakery":"Padaria", "market":"Mercado", "workshop":"Armas", "barracks":"Quartel"}
+const BUILD_HINTS := {"house":"Abrigo", "farm":"Alimento e cereal", "vineyard":"O começo de cada vinho", "winery":"Uvas viram vinho", "store":"Depósito físico", "lumber":"Corta árvores", "quarry":"Pedra na jazida", "training":"Forma civis com ouro", "inn":"Os trabalhadores comem aqui", "sawmill":"Troncos viram madeira", "mill":"Cereal vira farinha", "bakery":"Farinha vira pão", "market":"Vende o excedente por ouro", "workshop":"Machados e arcos", "barracks":"Recrutas recebem armas"}
 
 ## Every card in a panel is a Button, and a Button swallows the touch drag, so
 ## a phone could only scroll in the gaps between cards. These forward the drag
@@ -142,6 +146,14 @@ class Glyph extends Control:
 				draw_colored_polygon(PackedVector2Array([Vector2(6,18),Vector2(20,6),Vector2(34,18)]),Color("ae6948"))
 				draw_rect(Rect2(17,24,8,10),dark)
 				draw_line(Vector2(28,20),Vector2(28,34),Color("7a5330"),3.0,true)
+			"market":
+				draw_rect(Rect2(9,20,22,14),Color("d5c5a0"))
+				for i in range(4):
+					draw_rect(Rect2(5+i*8,10,4,8),purple if i%2 == 0 else Color("f3ead3"))
+				draw_line(Vector2(4,10),Vector2(36,10),Color("7a5330"),3.0,true)
+				draw_line(Vector2(4,18),Vector2(36,18),Color("7a5330"),2.0,true)
+				draw_circle(Vector2(20,27),5.0,gold)
+				draw_circle(Vector2(20,27),2.4,Color("d6ac6f"))
 			"gold":
 				draw_rect(Rect2(8,22,24,10),gold)
 				draw_rect(Rect2(12,14,16,10),Color("d6ac6f"))
@@ -251,6 +263,13 @@ var _menu_scroll: ScrollContainer
 var _restart_confirm: VBoxContainer
 var _help: PanelContainer
 var _report: PanelContainer
+var _missions: PanelContainer
+var _missions_scroll: ScrollContainer
+var _missions_body: VBoxContainer
+var _missions_title: Label
+var _missions_close: Button
+var _missions_button: Button
+var _missions_signature := ""
 var _report_scroll: ScrollContainer
 var _report_body: VBoxContainer
 var _report_title: Label
@@ -339,6 +358,7 @@ func setup(sim: RefCounted) -> void:
 	_make_menu()
 	_make_help()
 	_make_report()
+	_make_missions()
 	_make_mode_and_toast()
 	get_viewport().size_changed.connect(_layout)
 	_layout()
@@ -509,7 +529,9 @@ func _make_objectives() -> void:
 	_objectives_toggle.add_theme_stylebox_override("normal",_style(Color.TRANSPARENT,Color.TRANSPARENT,8,4))
 	_objective_details = _vbox(box,9)
 	_outcome = _label(_objective_details,tr("Um vale para chamar de seu"),19,WINE,true)
-	for i in range(3):
+	# Enough rows for the longest mission. Spare rows stay hidden, so a short
+	# objective list still reads as a short list.
+	for i in range(OBJECTIVE_ROWS):
 		_objective_labels.append(_label(_objective_details,"",15,INK,true))
 	_notice_label = _label(_objective_details,"",14,MUTED,true)
 	_notice_label.add_theme_constant_override("line_spacing",2)
@@ -724,7 +746,7 @@ func _populate_training() -> void:
 	_role_grid.add_theme_constant_override("h_separation",8)
 	_role_grid.add_theme_constant_override("v_separation",8)
 	_drawer_content.add_child(_role_grid)
-	for role in ["builder","servant","farmer","vintner","lumberjack","stonecutter","miller","baker","recruit","instructor"]:
+	for role in ["builder","servant","farmer","vintner","lumberjack","stonecutter","miller","baker","merchant","recruit","instructor"]:
 		var button := _button(_role_grid,"",_train_role.bind(role))
 		button.custom_minimum_size.y = 96
 		button.size_flags_horizontal = Control.SIZE_EXPAND_FILL
@@ -936,10 +958,7 @@ func _make_menu() -> void:
 	_save_button = _button(content,tr("Salvar partida"),func(): save_requested.emit())
 	_accent(_save_button)
 	_load_button = _button(content,tr("Carregar partida"),func(): load_requested.emit())
-	_lesson_button = _button(content,tr("Missão: primeira lição"),func():
-		close_panels()
-		command_requested.emit("load_mission", {"id": "tsk-01"})
-	)
+	_lesson_button = _button(content,tr("Missões"),_show_missions)
 	_report_button = _button(content,tr("Construções da vila"),_show_report)
 	_menu_help_button = _button(content,tr("Como jogar"),_show_help)
 	_code_button = _button(content,tr("Código e artes do jogo ↗"),func(): OS.shell_open("https://github.com/OuterHeavenX/chill-town"))
@@ -1016,6 +1035,80 @@ func _show_report() -> void:
 	_report.show()
 	_report_scroll.scroll_vertical = 0
 	_layout()
+
+## The campaign list. Each lesson unlocks one more production chain and locks the
+## buildings it has not taught yet, so the list doubles as the tutorial order.
+func _make_missions() -> void:
+	_missions = _panel(_root,true,18)
+	_missions.name = "MissionList"
+	_missions.visible = false
+	var box := _vbox(_missions,10)
+	var head := _hbox(box)
+	var titles := _vbox(head,1)
+	titles.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	_missions_title = _label(titles,tr("Missões"),24,WINE)
+	_label(titles,tr("Escolher uma lição reinicia a vila com as construções daquela lição."),14,MUTED,true)
+	_missions_close = _button(head,tr("Fechar"),close_panels,78)
+	_missions_scroll = ScrollContainer.new()
+	_missions_scroll.horizontal_scroll_mode = ScrollContainer.SCROLL_MODE_DISABLED
+	_missions_scroll.size_flags_vertical = Control.SIZE_EXPAND_FILL
+	box.add_child(_missions_scroll)
+	_missions_body = _vbox(_missions_scroll,10)
+	_missions_body.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+
+func _show_missions() -> void:
+	close_panels()
+	_missions_signature = ""
+	_fill_missions()
+	_missions.show()
+	_missions_scroll.scroll_vertical = 0
+	_layout()
+
+func _fill_missions() -> void:
+	if not is_instance_valid(_missions_body):
+		return
+	var active := ""
+	var spec: Variant = _sim.get("mission") if _sim != null else null
+	if spec != null:
+		active = str(spec.get("id"))
+	if active == _missions_signature and _missions_body.get_child_count() > 0:
+		return
+	_missions_signature = active
+	_clear_children(_missions_body)
+	var entries: Array = MissionSpec.campaign_entries()
+	if entries.is_empty():
+		_label(_missions_body,tr("Nenhuma missão encontrada."),16,MUTED,true)
+	for entry: Dictionary in entries:
+		_mission_row(entry,str(entry.get("id","")) == active)
+	_label(_missions_body,tr("Vila livre"),19,WINE)
+	var free := _panel(_missions_body,false,10)
+	var free_box := _vbox(free,4)
+	_label(free_box,tr("Sem missão"),18)
+	_label(free_box,tr("Tudo liberado desde o início, sem objetivos obrigatórios."),14,MUTED,true)
+	var free_button := _button(free_box,tr("Começar vila livre"),func():
+		close_panels()
+		command_requested.emit("new_game",{})
+	)
+	free_button.disabled = active.is_empty()
+
+func _mission_row(entry: Dictionary, active: bool) -> void:
+	var mission_id := str(entry.get("id",""))
+	var card := _panel(_missions_body,false,10)
+	var column := _vbox(card,4)
+	var heading := _hbox(column,6)
+	var name_label := _label(heading,tr(str(entry.get("name",mission_id))),18)
+	name_label.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	name_label.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+	if active:
+		_label(heading,tr("em andamento"),15,SUCCESS)
+	var summary := _label(column,tr(str(entry.get("summary",""))),14,MUTED,true)
+	summary.max_lines_visible = 4
+	var start := _button(column,tr("Jogar esta lição"),func():
+		close_panels()
+		command_requested.emit("load_mission",{"id":mission_id})
+	)
+	start.disabled = active
+
 
 ## Completed and in-progress buildings per kind, cancelled ones ignored.
 func _building_counts() -> Dictionary:
@@ -1290,7 +1383,7 @@ func show_message(text: String) -> void:
 
 func close_panels() -> void:
 	entrance_highlighted.emit(Vector2i(-1,-1))
-	for panel in [_drawer,_menu,_help,_report,_inspector]:
+	for panel in [_drawer,_menu,_help,_report,_missions,_inspector]:
 		if is_instance_valid(panel):
 			panel.hide()
 	if is_instance_valid(_restart_confirm):
@@ -1338,6 +1431,8 @@ func _focus_village() -> void:
 func refresh() -> void:
 	if is_instance_valid(_report) and _report.visible:
 		_fill_report()
+	if is_instance_valid(_missions) and _missions.visible:
+		_fill_missions()
 	if is_instance_valid(_root) and _sim != null:
 		var army_ready := _has_completed("barracks")
 		if army_ready != _army_ready:
@@ -1785,6 +1880,8 @@ func _layout() -> void:
 	_help.size = Vector2(help_width,help_height)
 	_report.position = _help.position
 	_report.size = _help.size
+	_missions.position = _help.position
+	_missions.size = _help.size
 	var mode_width := minf(665.0,inner_width)
 	_mode_panel.position = Vector2(left_edge+(inner_width-mode_width)*0.5,bottom_edge-132.0)
 	_mode_panel.size = Vector2(mode_width,56)

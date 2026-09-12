@@ -1,5 +1,6 @@
 {
   "id": "tsk-01",
+  "name": "First lesson: a village that works",
   "save_mission_key": "tsk-01",
   "briefing": [
     "Build a school, an inn, a woodcutter and a quarry.",
@@ -10,20 +11,18 @@
   "available_roles": ["builder", "servant", "instructor", "lumberjack", "stonecutter"],
   "start": {
     "buildings": [
-      {"kind": "hall", "cell": [7, 10], "complete": true}
+      {
+        "kind": "hall",
+        "cell": [7, 10],
+        "complete": true
+      }
     ],
     "workers": [
       {"role": "builder", "n": 2},
       {"role": "servant", "n": 2},
       {"role": "resident", "n": 6}
     ],
-    "stock": {
-      "wood": 24,
-      "stone": 16,
-      "food": 40,
-      "grapes": 0,
-      "wine": 0
-    }
+    "stock": {"wood": 24, "stone": 16, "food": 40, "grapes": 0, "wine": 0}
   },
   "objectives": [
     {"op": "completed", "kind": "training", "count": 1, "text": "Build a school"},
@@ -31,6 +30,10 @@
     {"op": "completed", "kind": "lumber", "count": 1, "text": "Build a woodcutter"},
     {"op": "completed", "kind": "quarry", "count": 1, "text": "Build a quarry"}
   ],
-  "win": {"all_objectives": true},
-  "lose": [{"op": "completed", "kind": "hall", "count": 0}]
+  "win": {
+    "all_objectives": true
+  },
+  "lose": [
+    {"op": "completed", "kind": "hall", "count": 0}
+  ]
 }

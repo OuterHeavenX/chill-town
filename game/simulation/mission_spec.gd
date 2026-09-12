@@ -2,8 +2,12 @@ extends RefCounted
 ## Data-only KaM teaching-mission loader. Default sandbox play does not apply this.
 
 const DIR := "res://content/missions"
+## Campaign order. Each lesson unlocks one more of the production chains, so the
+## list is also the order the buildings are introduced in.
+const CAMPAIGN := ["tsk-01", "tsk-02", "tsk-03", "tsk-04"]
 
 var id := ""
+var name := ""
 var save_mission_key := ""
 var briefing: Array[String] = []
 var available_buildings: Array[String] = []
@@ -23,6 +27,22 @@ static func load_id(mission_id: String) -> RefCounted:
 	return spec
 
 
+## Title and one-line pitch for every campaign lesson, for the mission list. A
+## lesson that fails to load is skipped rather than shown as a dead button.
+static func campaign_entries() -> Array[Dictionary]:
+	var entries: Array[Dictionary] = []
+	for mission_id: String in CAMPAIGN:
+		var spec: RefCounted = load_id(mission_id)
+		if spec == null:
+			continue
+		entries.append({
+			"id": spec.id,
+			"name": spec.name,
+			"summary": spec.briefing[0] if not spec.briefing.is_empty() else "",
+		})
+	return entries
+
+
 func _load_path(path: String) -> String:
 	if not FileAccess.file_exists(path):
 		return "Mission file missing: " + path
@@ -39,6 +59,7 @@ func _load_path(path: String) -> String:
 func _apply(data: Dictionary) -> String:
 	id = str(data.get("id", ""))
 	save_mission_key = str(data.get("save_mission_key", id))
+	name = str(data.get("name", id))
 	if id.is_empty():
 		return "Mission id is required."
 	briefing = _string_array(data.get("briefing", []))
@@ -63,21 +84,55 @@ func allows_role(role: String) -> bool:
 	return available_roles.has(role)
 
 
-func objectives_met(completed_counts: Dictionary) -> bool:
+func objectives_met(state: Dictionary) -> bool:
 	if not bool(win.get("all_objectives", false)):
 		return false
 	for row in objectives:
-		if not _predicate_met(row, completed_counts):
+		if not predicate_met(row, state):
 			return false
 	return not objectives.is_empty()
 
 
-func _predicate_met(row: Dictionary, completed_counts: Dictionary) -> bool:
-	if str(row.get("op", "")) != "completed":
-		return false
+func predicate_met(row: Dictionary, state: Dictionary) -> bool:
+	var progress := measure(row, state)
+	return progress.x >= progress.y
+
+
+## How far along one objective is, as [have, need]. The HUD shows both numbers so
+## "produce 60 wine" reads as progress rather than as a light that is simply off.
+func measure(row: Dictionary, state: Dictionary) -> Vector2i:
+	var need: int = maxi(1, int(row.get("count", 1)))
 	var kind := str(row.get("kind", ""))
-	var need := int(row.get("count", 1))
-	return int(completed_counts.get(kind, 0)) >= need
+	var have := 0
+	match str(row.get("op", "")):
+		"completed":
+			have = int(_bucket(state, "completed").get(kind, 0))
+		"produced":
+			have = int(_bucket(state, "produced").get(kind, 0))
+		"stock":
+			have = int(_bucket(state, "stock").get(kind, 0))
+		"role":
+			have = int(_bucket(state, "roles").get(kind, 0))
+		"population":
+			have = int(state.get("population", 0))
+		"survive":
+			have = int(state.get("seconds", 0))
+		_:
+			return Vector2i(0, need)
+	return Vector2i(mini(have, need), need)
+
+
+## Whether an objective counts up towards a target the player can watch tick over.
+## Building counts read better as a checkbox, so they are excluded.
+func shows_progress(row: Dictionary) -> bool:
+	if str(row.get("op", "")) == "completed":
+		return false
+	return int(row.get("count", 1)) > 1
+
+
+static func _bucket(state: Dictionary, key: String) -> Dictionary:
+	var value: Variant = state.get(key, {})
+	return value if value is Dictionary else {}
 
 
 static func _string_array(value: Variant) -> Array[String]:

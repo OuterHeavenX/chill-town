@@ -509,5 +509,20 @@
   "{role} · {reason}": "{role} · {reason}",
   "{role} · {state}": "{role} · {state}",
   "{state} · fila compartilhada · {count} por pedido": "{state} · shared queue · {count} per order",
-  "Árvore derrubada": "Tree felled"
+  "Árvore derrubada": "Tree felled",
+  "Mercado": "Market",
+  "Um mercador vende o excedente da vila por ouro.": "A merchant sells the village's surplus for gold.",
+  "Mercador": "Merchant",
+  "Aguardando mercadorias para vender": "Waiting for goods to sell",
+  "Vendendo {item}": "Selling {item}",
+  "Vende o excedente por ouro": "Sells the surplus for gold",
+  "Missões": "Missions",
+  "Escolher uma lição reinicia a vila com as construções daquela lição.": "Choosing a lesson restarts the village with that lesson's buildings.",
+  "Nenhuma missão encontrada.": "No missions found.",
+  "em andamento": "in progress",
+  "Jogar esta lição": "Play this lesson",
+  "Vila livre": "Free village",
+  "Sem missão": "No mission",
+  "Tudo liberado desde o início, sem objetivos obrigatórios.": "Everything unlocked from the start, with no required objectives.",
+  "Começar vila livre": "Start a free village"
 }

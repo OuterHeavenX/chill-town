@@ -1,0 +1,68 @@
+{
+  "id": "tsk-04",
+  "name": "Fourth lesson: a village that can defend itself",
+  "save_mission_key": "tsk-04",
+  "briefing": [
+    "Grow the village until it can arm itself.",
+    "Houses raise the population cap, the school fills it, and the workshop arms the barracks.",
+    "Everything is unlocked. Keep the village fed while it grows."
+  ],
+  "available_buildings": [
+    "hall",
+    "house",
+    "store",
+    "training",
+    "inn",
+    "lumber",
+    "sawmill",
+    "quarry",
+    "farm",
+    "mill",
+    "bakery",
+    "vineyard",
+    "winery",
+    "market",
+    "workshop",
+    "barracks"
+  ],
+  "available_roles": [
+    "builder",
+    "servant",
+    "instructor",
+    "lumberjack",
+    "stonecutter",
+    "farmer",
+    "miller",
+    "baker",
+    "vintner",
+    "merchant",
+    "recruit"
+  ],
+  "start": {
+    "buildings": [
+      {
+        "kind": "hall",
+        "cell": [7, 10],
+        "complete": true
+      }
+    ],
+    "workers": [
+      {"role": "builder", "n": 2},
+      {"role": "servant", "n": 3},
+      {"role": "resident", "n": 8}
+    ],
+    "stock": {"wood": 100, "stone": 60, "food": 120, "gold": 40}
+  },
+  "objectives": [
+    {"op": "completed", "kind": "house", "count": 6, "text": "Build six houses"},
+    {"op": "completed", "kind": "workshop", "count": 1, "text": "Build a weapon workshop"},
+    {"op": "completed", "kind": "barracks", "count": 1, "text": "Build a barracks"},
+    {"op": "population", "kind": "", "count": 32, "text": "Grow the village"},
+    {"op": "produced", "kind": "axe", "count": 6, "text": "Forge axes"},
+    {"op": "survive", "kind": "", "count": 600, "text": "Hold the village together (seconds)"}
+  ],
+  "win": {
+    "all_objectives": true
+  },
+  "lose": []
+}

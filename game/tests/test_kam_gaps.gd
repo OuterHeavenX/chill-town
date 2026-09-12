@@ -57,6 +57,7 @@ func run() -> void:
 	_test_trees_trunks_timber()
 	_test_quarry_deposit()
 	_test_corn_loaves()
+	_test_market_gold()
 	_test_army_equipment()
 	_test_mission_lock()
 	print("KAM_GAPS_RESULT checks=", checks, " failures=", failures)
@@ -218,6 +219,55 @@ func _test_corn_loaves() -> void:
 	expect(not wine_win, "sandbox identity win is not deliver-12-wines")
 
 
+## Gold used to be a countdown: fifty coins at the start and no producer, so the
+## school stopped forever. The market is the only thing that makes more.
+func _test_market_gold() -> void:
+	var sim := Approved.new()
+	sim.setup()
+	connect_school(sim)
+	expect(not sim.definition("market").is_empty(), "the market is a buildable kind")
+	expect(sim.command("build", {"kind": "market", "cell": Vector2i(16, 6)}).ok, "market places anywhere on approved ground")
+	link_entrance(sim, sim.buildings.back().entrance)
+	expect(wait_complete(sim, "market", 6000), "market completes through autonomous builders")
+	sim.command("train", {"role": "merchant"})
+	var market: Dictionary = {}
+	for building in sim.buildings:
+		if building.kind == "market":
+			market = building
+	expect(not market.is_empty(), "the finished market is in the village")
+
+	# A merchant with nothing to sell waits rather than inventing gold.
+	var idle_gold := int(sim.produced.get("gold", 0))
+	advance(sim, 600)
+	expect(int(sim.produced.get("gold", 0)) == idle_gold, "an empty stall mints no gold")
+
+	# Below the reserve the stalls stay empty: the inn and the winery come first.
+	# Stock the cellar the way the simulation would, so the conservation check
+	# below still measures trading rather than the test's own bookkeeping.
+	var poured := int(sim.MARKET_RESERVE.wine) - int(sim.stock.wine)
+	sim.stock.wine += poured
+	sim.initial.wine += poured
+	expect(sim.market_spare("wine") == 0, "wine at the reserve is not for sale")
+	expect(sim.market_spare("wood") == 0, "goods the market does not trade are never spare")
+	sim.stock.wine += 20
+	sim.initial.wine += 20
+	expect(sim.market_spare("wine") == 20, "only the surplus above the reserve reaches the stalls")
+
+	var gold_before := int(sim.stock.gold) + int(sim.produced.get("gold", 0))
+	var sold := false
+	for i in range(9000):
+		sim.step()
+		if int(sim.consumed.get("wine", 0)) >= 1 and int(sim.produced.get("gold", 0)) > 0:
+			sold = true
+			break
+	expect(sold, "a merchant sells surplus wine and the village gains gold")
+	expect(int(sim.stats.get("gold_earned", 0)) > 0, "market earnings are recorded in the village stats")
+	expect(int(sim.produced.gold) == int(sim.consumed.wine) * int(sim.MARKET_PRICES.wine), "every sale pays the listed price")
+	expect(int(sim.stock.gold) + int(sim.produced.get("gold", 0)) > gold_before, "gold is now a resource the village can grow")
+	expect(int(sim.stock.wine) >= int(sim.MARKET_RESERVE.wine) - 4, "selling never digs into the reserve the inn drinks from")
+	expect(sim.conservation_errors().is_empty(), "trading conserves goods: " + str(sim.conservation_errors()))
+
+
 func _test_army_equipment() -> void:
 	var sim := Approved.new()
 	sim.setup()
@@ -240,6 +290,52 @@ func _test_army_equipment() -> void:
 	expect(sim.battle != null and sim.battle._alive("ally").size() >= 2, "company has the recruited soldiers")
 
 
+## Every objective operator a mission may use, and the progress numbers the HUD
+## prints next to it. A mission that asks for gold must not be satisfied by wood.
+func _test_objective_ops() -> void:
+	var spec: RefCounted = Spec.load_id("tsk-03")
+	expect(spec != null, "tsk-03 loads")
+	if spec == null:
+		return
+	expect(spec.allows_building("market"), "the wine lesson unlocks the market")
+	expect(not spec.allows_building("barracks"), "the wine lesson still hides the barracks")
+	var short := {
+		"completed": {"vineyard": 1, "winery": 1, "market": 1},
+		"produced": {"wine": 30, "gold": 40},
+		"roles": {"merchant": 1},
+	}
+	expect(not spec.objectives_met(short), "half the gold does not finish the wine lesson")
+	var full := {
+		"completed": {"vineyard": 1, "winery": 1, "market": 1},
+		"produced": {"wine": 30, "gold": 80},
+		"roles": {"merchant": 1},
+	}
+	expect(spec.objectives_met(full), "all six objectives finish the wine lesson")
+	var gold_row := {"op": "produced", "kind": "gold", "count": 80}
+	expect(spec.measure(gold_row, short) == Vector2i(40, 80), "produced objectives report partial progress")
+	expect(spec.shows_progress(gold_row), "a counted objective shows its progress")
+	expect(not spec.shows_progress({"op": "completed", "kind": "market", "count": 1}), "a single building stays a checkbox")
+	expect(spec.predicate_met({"op": "stock", "kind": "food", "count": 20}, {"stock": {"food": 40}}), "stock objectives read the store")
+	expect(not spec.predicate_met({"op": "stock", "kind": "food", "count": 60}, {"stock": {"food": 40}}), "stock objectives fail below target")
+	expect(spec.predicate_met({"op": "population", "count": 12}, {"population": 12}), "population objectives read the headcount")
+	expect(spec.predicate_met({"op": "survive", "count": 600}, {"seconds": 640}), "survive objectives read elapsed seconds")
+	expect(not spec.predicate_met({"op": "survive", "count": 600}, {"seconds": 300}), "survive objectives fail early")
+	expect(not spec.predicate_met({"op": "nonsense", "kind": "gold", "count": 1}, full), "an unknown operator never counts as met")
+	var lesson := Approved.new()
+	expect(lesson.command("load_mission", {"id": "tsk-04"}).ok, "the fourth lesson loads")
+	var state: Dictionary = lesson.mission_state()
+	for key in ["completed", "produced", "stock", "roles", "population", "seconds"]:
+		expect(state.has(key), "mission state carries " + str(key))
+	var rows: Array = lesson.objective_rows()
+	expect(rows.size() == 6, "the fourth lesson shows all six objectives")
+	var progress_rows := 0
+	for row: Dictionary in rows:
+		expect(not bool(row.done), "a fresh village has met no objective")
+		if str(row.text).contains("/"):
+			progress_rows += 1
+	expect(progress_rows == 3, "counted objectives print have/need, building checkboxes do not")
+
+
 func _test_mission_lock() -> void:
 	var spec: RefCounted = Spec.load_id("tsk-01")
 	var sim := Approved.new()
@@ -248,8 +344,9 @@ func _test_mission_lock() -> void:
 	expect(not sim.command("build", {"kind": "farm", "cell": Vector2i(16, 19)}).ok, "teaching set hides farm")
 	expect(not sim.command("build", {"kind": "winery", "cell": Vector2i(18, 17)}).ok, "teaching set hides winery")
 	expect(sim.command("build", {"kind": "inn", "cell": Vector2i(4, 6)}).ok, "teaching set allows inn")
-	expect(spec.objectives_met({"training": 1, "inn": 1, "lumber": 1, "quarry": 1}), "teaching win is school/inn/wood/stone")
-	expect(not spec.objectives_met({"house": 2, "farm": 1, "wine": 12}), "wine checklist does not win the teaching set")
+	expect(spec.objectives_met({"completed": {"training": 1, "inn": 1, "lumber": 1, "quarry": 1}}), "teaching win is school/inn/wood/stone")
+	expect(not spec.objectives_met({"completed": {"house": 2, "farm": 1}}), "wine checklist does not win the teaching set")
+	_test_objective_ops()
 	var sandbox := Approved.new()
 	sandbox.setup()
 	expect(sandbox.mission == null and sandbox.command("build", {"kind": "farm", "cell": Vector2i(16, 19)}).ok, "default sandbox start is unchanged")
