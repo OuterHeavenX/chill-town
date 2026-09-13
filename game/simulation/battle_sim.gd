@@ -1,7 +1,12 @@
 extends RefCounted
 ## Small deterministic battle simulation. Rendering never drives decisions.
 
+## Where the raid target sits by default. A game may place it elsewhere, so the
+## running battle keeps its own copy in `camp` and every rule reads that.
 const CAMP := Vector2i(30, 14)
+## Enemy garrison positions, relative to the camp.
+const GARRISON := [[-1, -1], [0, -1], [1, -1], [1, 0]]
+const GARRISON_ARCHERS := [[2, 1], [2, 2]]
 const RALLY := Vector2i(17, 12)
 const FALLBACK := Vector2i(15, 14)
 const DIRECTIONS := [Vector2i.RIGHT, Vector2i.DOWN, Vector2i.LEFT, Vector2i.UP]
@@ -29,6 +34,7 @@ var events: Array[Dictionary] = []
 var tick: int = 0
 var capture_progress: int = 0
 var order_revision: int = 0
+var camp := CAMP
 
 var _walkable: Callable
 var _pathfinder: Callable
@@ -40,9 +46,10 @@ var _last_reason: String = ""
 var _order_finished: bool = false
 
 
-func setup(walkable: Callable, pathfinder: Callable, garrison: bool = true) -> void:
+func setup(walkable: Callable, pathfinder: Callable, garrison: bool = true, camp_cell: Vector2i = Vector2i(-1, -1)) -> void:
 	_walkable = walkable
 	_pathfinder = pathfinder
+	camp = camp_cell if camp_cell.x >= 0 else CAMP
 	units.clear()
 	events.clear()
 	_known.clear()
@@ -58,8 +65,16 @@ func setup(walkable: Callable, pathfinder: Callable, garrison: bool = true) -> v
 	_risk_ticks = 0
 	_last_reason = ""
 	_order_finished = false
+	# The camp is held whether or not the village starts with an army: `garrison`
+	# says who the PLAYER begins with, not whether the enemy exists. Without this
+	# a village that recruits its own company finds the camp deserted.
+	for offset in GARRISON:
+		_spawn("enemy", "lancer", camp + Vector2i(offset[0], offset[1]))
+	for offset in GARRISON_ARCHERS:
+		_spawn("enemy", "archer", camp + Vector2i(offset[0], offset[1]))
 	if not garrison:
 		_initial_health = 1
+		_refresh_vision()
 		_notice("ready", "Quartel pronto. Recrute soldados com equipamento.")
 		return
 	for index in range(8):
@@ -67,10 +82,6 @@ func setup(walkable: Callable, pathfinder: Callable, garrison: bool = true) -> v
 		units.back().reserve = index >= 6
 	for index in range(4):
 		_spawn("ally", "archer", Vector2i(16, 11 + index))
-	for cell in [Vector2i(29, 13), Vector2i(30, 13), Vector2i(31, 13), Vector2i(31, 14)]:
-		_spawn("enemy", "lancer", cell)
-	_spawn("enemy", "archer", Vector2i(32, 15))
-	_spawn("enemy", "archer", Vector2i(32, 16))
 	_initial_health = _health("ally")
 	_refresh_vision()
 	_notice("ready", "12 soldados prontos. Escolha um objetivo para a companhia.")
@@ -217,7 +228,7 @@ func _nearest_enemy(unit: Dictionary) -> Dictionary:
 
 func _may_engage(unit: Dictionary, cell: Vector2i) -> bool:
 	if unit.team == "enemy":
-		return _distance_squared(CAMP, cell) <= 81
+		return _distance_squared(camp, cell) <= 81
 	if order == "retreat" or order == "regroup" or unit.retreating:
 		return _distance_squared(unit.cell, cell) <= 2
 	if _distance_squared(target, cell) <= 36:
@@ -262,10 +273,10 @@ func _decide_movement(unit: Dictionary, enemy: Dictionary) -> void:
 			destination = _archer_goal(unit, enemy)
 			unit.state = "Buscando posição de tiro" if unit.ammo > 0 else "Sem munição; protegendo-se"
 	else:
-		destination = _formation_slot(unit, target if unit.team == "ally" else CAMP)
+		destination = _formation_slot(unit, target if unit.team == "ally" else camp)
 		unit.state = "Em formação" if unit.cell == destination else "Marchando"
-	if unit.team == "enemy" and _distance_squared(destination, CAMP) > 64:
-		destination = _formation_slot(unit, CAMP)
+	if unit.team == "enemy" and _distance_squared(destination, camp) > 64:
+		destination = _formation_slot(unit, camp)
 	if unit.team == "ally" and order == "defend" and _distance_squared(destination, target) > 36:
 		destination = _formation_slot(unit, target)
 	_move_toward(unit, destination)
@@ -406,17 +417,17 @@ func _assess_preservation() -> void:
 
 
 func _update_capture() -> void:
-	if captured or order != "attack" or _distance_squared(target, CAMP) > 25:
+	if captured or order != "attack" or _distance_squared(target, camp) > 25:
 		capture_progress = 0 if not captured else 30
 		return
 	var allies := _alive("ally")
 	var present := 0
 	for unit in allies:
-		if _distance_squared(unit.cell, CAMP) <= 16:
+		if _distance_squared(unit.cell, camp) <= 16:
 			present += 1
 	var opposition := false
 	for enemy in units:
-		if enemy.team == "enemy" and enemy.hp > 0 and enemy.visible and _distance_squared(enemy.cell, CAMP) <= 36:
+		if enemy.team == "enemy" and enemy.hp > 0 and enemy.visible and _distance_squared(enemy.cell, camp) <= 36:
 			opposition = true
 	if not opposition and present >= maxi(1, ceili(allies.size() * 0.5)):
 		capture_progress += 1
@@ -425,7 +436,7 @@ func _update_capture() -> void:
 	if capture_progress >= 30:
 		captured = true
 		order = "defend"
-		target = CAMP
+		target = camp
 		status = "Acampamento conquistado! Companhia defendendo a posição."
 		_notice("captured", status)
 
@@ -561,7 +572,8 @@ func snapshot() -> Dictionary:
 		"target": [target.x, target.y], "status": status, "captured": captured,
 		"defeated": defeated, "events": events.duplicate(true), "capture_progress": capture_progress,
 		"order_revision": order_revision, "next_id": _next_id, "initial_health": _initial_health,
-		"risk_ticks": _risk_ticks, "known": memory, "last_reason": _last_reason, "order_finished": _order_finished}
+		"risk_ticks": _risk_ticks, "known": memory, "last_reason": _last_reason, "order_finished": _order_finished,
+		"camp": [camp.x, camp.y]}
 
 
 func restore(data: Dictionary) -> bool:
@@ -570,6 +582,10 @@ func restore(data: Dictionary) -> bool:
 		return false
 	if data.get("order") not in ORDERS or not _saved_cell(data.get("target")):
 		return false
+	# Saves from before the camp could move carry none; those games used CAMP.
+	if data.has("camp") and not _saved_cell(data.get("camp")):
+		return false
+	var restored_camp: Vector2i = Vector2i(int(data.camp[0]), int(data.camp[1])) if data.has("camp") else CAMP
 	for key in ["captured", "defeated", "order_finished"]:
 		if typeof(data.get(key)) != TYPE_BOOL:
 			return false
@@ -647,6 +663,7 @@ func restore(data: Dictionary) -> bool:
 	units = restored_units
 	events = restored_events
 	_known = known
+	camp = restored_camp
 	tick = int(data.tick)
 	order = data.order
 	target = Vector2i(int(data.target[0]), int(data.target[1]))

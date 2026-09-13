@@ -61,6 +61,7 @@ func run() -> void:
 	_test_sword_outclasses_axe()
 	_test_market_gold()
 	_test_army_equipment()
+	_test_raid_camp_and_loot()
 	_test_mission_lock()
 	print("KAM_GAPS_RESULT checks=", checks, " failures=", failures)
 	quit(0 if failures.is_empty() else 1)
@@ -302,6 +303,60 @@ func _test_sword_outclasses_axe() -> void:
 	var militia: Dictionary = armed.command("recruit", {"role": "lancer"})
 	if militia.ok:
 		expect(int(armed.consumed.get("axe", 0)) == 1, "the next recruit falls back to an axe")
+
+
+## The raid target has to be somewhere a company can actually walk to, and taking
+## it has to be worth the trip.
+func _test_raid_camp_and_loot() -> void:
+	var seen := {}
+	for attempt in range(40):
+		var roll := Approved.new()
+		roll.setup()
+		seen[roll.raid_camp] = true
+		var path: Array[Vector2i] = roll.find_path(Vector2i(8, 13), roll.raid_camp)
+		expect(not path.is_empty(), "the camp at %s is reachable on foot" % str(roll.raid_camp))
+		expect(roll.raid_camp.x >= 25, "the camp sits on the far bank: %s" % str(roll.raid_camp))
+	expect(seen.size() > 1, "the camp moves between games (%d places seen)" % seen.size())
+
+	var sim := Approved.new()
+	sim.setup()
+	expect(not sim.raid_looted, "a fresh village has raided nobody")
+	sim.command("train", {"role": "recruit"})
+	sim._ensure_battle()
+	expect(sim.battle != null and sim.battle.camp == sim.raid_camp, "the battle garrisons this game's camp")
+	var garrison := 0
+	for unit in sim.battle.units:
+		if unit.team == "enemy":
+			garrison += 1
+	expect(garrison == 6, "the camp is held by a garrison (%d)" % garrison)
+
+	# Take the camp the honest way the simulation would: the garrison falls, then
+	# the company stands on it under attack orders until the capture completes.
+	var gold_before := int(sim.stock.gold)
+	var iron_before := int(sim.stock.iron)
+	for unit in sim.battle.units:
+		if unit.team == "enemy":
+			unit.hp = 0
+	for i in range(12):
+		sim.battle.recruit("lancer")
+	expect(sim.command("army", {"order": "attack", "target": sim.raid_camp}).ok, "the company is ordered onto the camp")
+	var captured := false
+	for i in range(4000):
+		sim.step()
+		if bool(sim.battle.captured):
+			captured = true
+			break
+	expect(captured, "an unopposed company takes the camp")
+	expect(sim.raid_looted, "taking the camp brings the loot home")
+	expect(int(sim.stock.gold) == gold_before + int(sim.RAID_LOOT.gold), "the gold arrives in the store")
+	expect(int(sim.stock.iron) == iron_before + int(sim.RAID_LOOT.iron), "so does the iron")
+	expect(int(sim.stats.get("raids_won", 0)) == 1, "the raid is recorded once")
+	expect(sim.conservation_errors().is_empty(), "loot balances the ledger: " + str(sim.conservation_errors()))
+	# Holding a camp already taken must not pay twice.
+	var gold_after := int(sim.stock.gold)
+	for i in range(400):
+		sim.step()
+	expect(int(sim.stock.gold) == gold_after, "a camp already taken pays nothing more")
 
 
 ## Gold used to be a countdown: fifty coins at the start and no producer, so the

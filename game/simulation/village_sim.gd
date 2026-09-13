@@ -35,6 +35,9 @@ const RECIPES := {
 }
 ## How much of each ingredient a workshop keeps on its own bench.
 const RECIPE_STOCK := 6
+## What the raiders bring home from a camp they take. Booked as production so the
+## conservation ledger still balances: goods enter the world, they are not moved.
+const RAID_LOOT := {"gold": 60, "iron": 6, "wood": 30, "stone": 20, "food": 40}
 var definitions: Dictionary = {
 	"hall": {"name":"Centro da vila", "description":"Administra a vila. Os moradores encontram trabalho sozinhos.", "cost":{}, "profession":"", "duration":12.0, "catalog_id":"bld_01_centro_da_vila"},
 	"house": {"name":"Casa", "description":"Abrigo civil. A população nova sai da escola, não das casas.", "cost":{"wood":4,"stone":2}, "profession":"", "duration":10.0, "catalog_id":"bld_02_casas"},
@@ -82,6 +85,8 @@ var mission: RefCounted = null
 var harvest_map: RefCounted = null
 var stone_deposits: Array[Vector2i] = []
 var iron_deposits: Array[Vector2i] = []
+var raid_camp := Battle.CAMP
+var raid_looted := false
 
 func setup(peaceful_mode: bool = false) -> void:
 	peaceful = peaceful_mode
@@ -107,10 +112,11 @@ func setup(peaceful_mode: bool = false) -> void:
 	reserved = _empty_items()
 	consumed = _empty_items()
 	produced = _empty_items()
-	stats = {"houses_built":0,"wine_delivered":0,"food_produced":0,"gold_earned":0}
+	stats = {"houses_built":0,"wine_delivered":0,"food_produced":0,"gold_earned":0,"raids_won":0}
 	food_shortage = 0
 	arrival_ticks = 0
 	last_notice = ""
+	raid_looted = false
 	for spec in [["hall",Vector2i(5,11)], ["house",Vector2i(4,6)], ["store",Vector2i(8,10)], ["training",Vector2i(8,5)], ["lumber",Vector2i(3,17)], ["quarry",Vector2i(10,19)]]:
 		_add_building(spec[0], spec[1], true)
 	_rebuild_navigation()
@@ -121,7 +127,7 @@ func setup(peaceful_mode: bool = false) -> void:
 		_add_worker("resident", Vector2i(4+i, 15))
 	if not peaceful:
 		battle = Battle.new()
-		battle.setup(_military_walkable,find_path)
+		battle.setup(_military_walkable,find_path,true,raid_camp)
 	_emit(tr("Bem-vindo ao Vale dos Vinhedos. Construa duas casas e uma horta para começar."))
 
 func _empty_items() -> Dictionary:
@@ -397,7 +403,7 @@ func _ensure_battle() -> void:
 	if battle != null:
 		return
 	battle = Battle.new()
-	battle.setup(_military_walkable, find_path, false)
+	battle.setup(_military_walkable, find_path, false, raid_camp)
 
 
 func _recruit(role: String) -> Dictionary:
@@ -503,6 +509,8 @@ func step() -> void:
 				food_shortage = maxi(0, food_shortage - 1)
 	if battle != null:
 		battle.step()
+		if bool(battle.captured) and not raid_looted:
+			_collect_loot()
 		if bool(battle.defeated) and not lost:
 			lost = true
 			_emit(tr("A companhia foi derrotada."), "chime")
@@ -513,6 +521,19 @@ func step() -> void:
 		elif mission == null and _completed("training") > 0 and _completed("inn") > 0 and _completed("lumber") > 0 and _completed("quarry") > 0:
 			won = true
 			_emit(tr("Escola, taverna, lenhador e pedreira estão prontos. Você pode continuar construindo."))
+
+## Taking the camp is worth something: its stores come home to the village.
+func _collect_loot() -> void:
+	raid_looted = true
+	var carried: Array[String] = []
+	for item: String in RAID_LOOT:
+		var amount: int = int(RAID_LOOT[item])
+		stock[item] = int(stock.get(item, 0)) + amount
+		produced[item] += amount
+		carried.append("%d %s" % [amount, tr(str(ITEM_NAMES.get(item, item)))])
+	stats.raids_won = int(stats.get("raids_won", 0)) + 1
+	_emit(tr("Acampamento saqueado. A companhia traz {loot}.").format({"loot": ", ".join(carried)}), "chime")
+
 
 func _free_cell(origin: Vector2i) -> Vector2i:
 	for radius in range(1,9):
@@ -1219,7 +1240,7 @@ func conservation_errors() -> Array[String]:
 	return errors
 
 func snapshot() -> Dictionary:
-	return _encode({"version":SAVE_VERSION,"mode":"peaceful" if peaceful else "standard","tick":tick,"next_id":next_id,"buildings":buildings,"workers":workers,"stock":stock,"reserved":reserved,"consumed":consumed,"produced":produced,"initial":initial,"training":training,"events":events,"stats":stats,"won":won,"lost":lost,"paused":paused,"food_shortage":food_shortage,"arrival_ticks":arrival_ticks,"battle":battle.snapshot() if battle != null else null,"harvested_cells":harvest_map.harvested_cells() if harvest_map != null else []})
+	return _encode({"version":SAVE_VERSION,"mode":"peaceful" if peaceful else "standard","tick":tick,"next_id":next_id,"buildings":buildings,"workers":workers,"stock":stock,"reserved":reserved,"consumed":consumed,"produced":produced,"initial":initial,"training":training,"events":events,"stats":stats,"won":won,"lost":lost,"paused":paused,"food_shortage":food_shortage,"arrival_ticks":arrival_ticks,"raid_camp":{"__cell":[raid_camp.x,raid_camp.y]},"raid_looted":raid_looted,"battle":battle.snapshot() if battle != null else null,"harvested_cells":harvest_map.harvested_cells() if harvest_map != null else []})
 
 func _encode(value: Variant) -> Variant:
 	if typeof(value) == TYPE_VECTOR2I:
@@ -1287,6 +1308,9 @@ func _apply(s: Dictionary) -> void:
 	arrival_ticks = int(s.arrival_ticks)
 	if harvest_map != null:
 		harvest_map.apply_harvested(s.get("harvested_cells", []))
+	if s.get("raid_camp") is Vector2i:
+		raid_camp = s.raid_camp
+	raid_looted = bool(s.get("raid_looted", false))
 	_rebuild_navigation()
 
 func _safe_int(value: Variant) -> bool:
@@ -1322,6 +1346,11 @@ func _valid_save(s: Dictionary) -> bool:
 			if s[key].has(item) and not _safe_int(s[key][item]):
 				return false
 	if not s.get("stats") is Dictionary:
+		return false
+	# Saves written before raids moved carry neither field.
+	if s.has("raid_camp") and not _valid_cell(s.get("raid_camp")):
+		return false
+	if s.has("raid_looted") and typeof(s.get("raid_looted")) != TYPE_BOOL:
 		return false
 	for key in ["houses_built","wine_delivered","food_produced"]:
 		if not _safe_int(s.stats.get(key)):

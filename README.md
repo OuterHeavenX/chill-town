@@ -56,6 +56,9 @@ buildings, train professions, and expand the economy.
 - Woodcutters harvest the nearest tree they can reach; the sawmill turns trunks into timber; quarries need a stone deposit.
 - Grain goes through mill and bakery to loaves; workers eat at the inn.
 - Barracks take recruits plus a weapon. Army mode sets a company objective.
+- An enemy camp sits across the bridge, in a different place each game. Scout it, take
+  it with your company, and its stores come home to your village as loot. The garrison
+  stays hidden until one of your soldiers actually sees it.
 - The iron chain is the long way to a better soldier: a charcoal burner turns trunks
   into charcoal, a mine digs ore from the northern seam, a foundry smelts the two into
   iron, and the forge makes swords. A swordsman hits about twice as hard as militia with
@@ -125,6 +128,13 @@ in the code are Portuguese keys translated through `game/locale/en.json`.
   cells are highlighted while the quarry tool is active (it was invisible before).
 - Woodcutters pick the nearest tree they can actually stand beside. They used to take the
   closest trunk and stall for good when it was walled in by the middle of a grove.
+- Made the army visible. The battle simulation was complete — soldiers, fog of war,
+  orders and camp capture all worked — but the scene the game actually loads drew none
+  of it, so you commanded a company you could not see. Soldiers, the enemy camp and the
+  objective marker are now rendered, with team rings and surcoats telling the sides apart.
+- Turned the fixed enemy camp into a raid: it moves between games, its garrison exists
+  whether or not you have an army (it used to spawn empty), and taking it pays loot into
+  your store.
 - Added the iron chain from the original art catalog, which was drawn but never built:
   charcoal burner, iron mine, foundry and weapon forge, each modelled from its plate.
   Weapons now have tiers that matter in a fight, where before every soldier was identical.

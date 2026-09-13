@@ -44,7 +44,8 @@ func setup(_peaceful_mode: bool = true) -> void:
 	reserved = _empty_items()
 	consumed = _empty_items()
 	produced = _empty_items()
-	stats = {"houses_built":0,"wine_delivered":0,"food_produced":0,"gold_earned":0}
+	stats = {"houses_built":0,"wine_delivered":0,"food_produced":0,"gold_earned":0,"raids_won":0}
+	raid_looted = false
 	food_shortage = 0
 	arrival_ticks = 0
 	last_notice = ""
@@ -55,6 +56,10 @@ func setup(_peaceful_mode: bool = true) -> void:
 	# Iron sits in the northern ground, a long haul from the stone in the south,
 	# so the weapon chain costs a road rather than sharing the quarry's.
 	iron_deposits = [Vector2i(6, 4), Vector2i(7, 4), Vector2i(5, 4), Vector2i(6, 3), Vector2i(8, 4)]
+	# The raid target sits somewhere on the far bank, over the bridge. It moves
+	# between games so a raid is a scouting trip and not a memorised route.
+	var choices: Array[Vector2i] = [Vector2i(30, 14), Vector2i(29, 9), Vector2i(31, 19), Vector2i(28, 21), Vector2i(31, 11)]
+	raid_camp = choices[randi() % choices.size()]
 	definitions.hall.name = "Edifício principal"
 	definitions.hall.description = "Abriga os primeiros moradores e o estoque inicial. Sua entrada inicia a rede de estradas."
 	definitions.store.description = "Depósito físico. Serventes buscam e deixam mercadorias na entrada."

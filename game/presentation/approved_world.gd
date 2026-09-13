@@ -20,6 +20,10 @@ var target_size := 30.0
 var visual_speed := 1.0
 var buildings := {}
 var people := {}
+var soldiers := {}
+var camp: Node3D
+var camp_banner: Node3D
+var order_marker: Node3D
 var selection: Node3D
 var preview: Node3D
 var road_preview: Node3D
@@ -43,6 +47,9 @@ func setup(village: RefCounted) -> void:
  road_preview = Node3D.new();add_child(road_preview)
  deposit_highlight = Node3D.new();deposit_highlight.name="StoneDepositHighlight";add_child(deposit_highlight)
  _build_deposit()
+ _build_camp()
+ order_marker = Node3D.new();order_marker.name="CompanyObjective";order_marker.visible=false;add_child(order_marker)
+ _outline(order_marker,Vector3.ZERO,CELL*0.5-0.06,Color("f3d181"))
  _camera_update(1.0)
  sync(0.0)
 
@@ -173,9 +180,140 @@ func sync(delta: float) -> void:
  detail_cursor=(detail_cursor+1)%maxi(1,sim.workers.size())
  for id in people.keys():
   if not alive.has(id):people[id].free();people.erase(id)
+ _sync_soldiers(delta)
  performance_elapsed+=delta
  if performance_elapsed>10:
   performance_elapsed=0;print("FRONTIER_FRAME: ",Engine.get_frames_per_second(),"fps; workers ",sim.workers.size(),"; roads ",sim.roads.size())
+
+## The enemy camp is a place on the map, not a thing the battle owns, so it is
+## drawn whether or not the village has an army yet.
+const CAMP_TENT := Color("8d7a52")
+const ALLY_COLOUR := Color("287a70")
+const ENEMY_COLOUR := Color("a7504d")
+
+func camp_cell() -> Vector2i:
+ return sim.raid_camp if sim.get("raid_camp") != null else Vector2i(30,14)
+
+func _build_camp() -> void:
+ camp = Node3D.new();camp.name="EnemyCamp";add_child(camp)
+ var cell:Vector2i=camp_cell()
+ camp.set_meta("cell",cell)
+ var origin:=Vector3(cell.x*CELL,0,cell.y*CELL)
+ for i in range(3):
+  var at:=origin+Vector3(-1.5+i*1.5,0,-0.6 if i%2==0 else 0.8)
+  var ground:float=terrain.support_height(at.x,at.z)
+  var tent:=Node3D.new();tent.position=Vector3(at.x,ground,at.z);camp.add_child(tent)
+  Basic.box(tent,Vector3(1.25,0.06,1.25),Vector3(0,0.03,0),Color("6f6249"))
+  Basic.cylinder(tent,0.72,0.95,Vector3(0,0.52,0),CAMP_TENT,0.02,6)
+  Basic.box(tent,Vector3(0.34,0.44,0.05),Vector3(0,0.24,0.63),Color("3c3527"))
+ var store:=origin+Vector3(1.9,0,-1.9)
+ var store_ground:float=terrain.support_height(store.x,store.z)
+ Basic.barrel(camp,Vector3(store.x,store_ground,store.z))
+ Basic.barrel(camp,Vector3(store.x+0.55,store_ground,store.z+0.15))
+ Basic.crate(camp,Vector3(store.x-0.6,store_ground,store.z+0.3))
+ Basic.crate(camp,Vector3(store.x-0.6,store_ground+0.45,store.z+0.3))
+ camp_banner = Node3D.new()
+ camp_banner.position=Vector3(origin.x+0.7,terrain.support_height(origin.x+0.7,origin.z-0.55),origin.z-0.55)
+ camp.add_child(camp_banner)
+ Basic.flag(camp_banner,Vector3.ZERO,ENEMY_COLOUR)
+ camp_banner.set_meta("cleared",false)
+
+## Soldiers reuse the villager rig with a weapon in hand and a team ring at the
+## feet: readable at the game camera without a second character pipeline.
+func _sync_soldiers(delta: float) -> void:
+ if is_instance_valid(camp) and camp.get_meta("cell",Vector2i(-1,-1))!=camp_cell():
+  camp.free();_build_camp()
+ var battle: RefCounted = sim.battle
+ if battle == null:
+  for key in soldiers.keys():soldiers[key].free()
+  soldiers.clear()
+  if is_instance_valid(order_marker):order_marker.visible=false
+  return
+ var alive := {}
+ for unit: Dictionary in battle.units:
+  if int(unit.hp) <= 0:continue
+  var id: int = int(unit.id)
+  alive[id]=true
+  if not soldiers.has(id):
+   soldiers[id]=_make_soldier(unit)
+   add_child(soldiers[id])
+  var actor: Node3D = soldiers[id]
+  var goal: Vector3 = _soldier_position(unit.cell,id)
+  if actor.get_meta("cell")!=unit.cell:
+   actor.set_meta("cell",unit.cell);actor.set_meta("from",actor.position);actor.set_meta("to",goal);actor.set_meta("fraction",0.0)
+  var fraction: float = actor.get_meta("fraction")
+  if not sim.paused:fraction=minf(1.0,fraction+delta*visual_speed/(battle.MOVE_TICKS*0.1))
+  actor.set_meta("fraction",fraction)
+  var from: Vector3=actor.get_meta("from");var to: Vector3=actor.get_meta("to")
+  var previous:Vector3=actor.position
+  actor.position=from.lerp(to,fraction)
+  actor.position.y=terrain.support_height(actor.position.x,actor.position.z)+0.002
+  var direction:=to-from
+  var walking: bool=fraction<1.0 and direction.length_squared()>0.01
+  if walking:actor.rotation.y=lerp_angle(actor.rotation.y,atan2(-direction.x,-direction.z),minf(1,delta*visual_speed*14))
+  var phase: float=actor.get_meta("gait_phase",id*0.83)
+  if walking:phase+=Vector2(actor.position.x-previous.x,actor.position.z-previous.z).length()*6.2
+  actor.set_meta("gait_phase",phase)
+  People.animate(actor,phase if walking else elapsed*8.0+id*0.83,walking,false,false)
+  # Enemies stay hidden until a soldier of yours has actually seen them.
+  actor.visible=str(unit.team)=="ally" or bool(unit.get("visible",false))
+ for id in soldiers.keys():
+  if not alive.has(id):soldiers[id].free();soldiers.erase(id)
+ var target: Variant = battle.get("target")
+ if is_instance_valid(order_marker):
+  order_marker.visible=target is Vector2i and not battle.units.is_empty()
+  if order_marker.visible:
+   var cell: Vector2i=target
+   order_marker.position=Vector3(cell.x*CELL,terrain.support_height(cell.x*CELL,cell.y*CELL)+0.05,cell.y*CELL)
+ if is_instance_valid(camp_banner) and bool(battle.get("captured"))!=bool(camp_banner.get_meta("cleared",false)):
+  camp_banner.set_meta("cleared",bool(battle.get("captured")))
+  for child in camp_banner.get_children():child.free()
+  Basic.flag(camp_banner,Vector3.ZERO,ALLY_COLOUR if bool(battle.get("captured")) else ENEMY_COLOUR)
+
+func _make_soldier(unit: Dictionary) -> Node3D:
+ var role: String=str(unit.get("role","lancer"))
+ var kit: String=str(unit.get("kit","axe"))
+ var actor: Node3D=People.create("builder" if role=="lancer" else "lumberjack",int(unit.id),1)
+ actor.set_meta("ground_height",Callable(terrain,"support_height"))
+ actor.set_meta("cell",unit.cell)
+ actor.position=_soldier_position(unit.cell,int(unit.id))
+ actor.set_meta("from",actor.position);actor.set_meta("to",actor.position);actor.set_meta("fraction",1.0)
+ actor.rotation.y=fmod(int(unit.id)*2.399,TAU)
+ var rig: Dictionary=actor.get_meta("approved_rig")
+ var tool: Node3D=rig.tool
+ for child in tool.get_children():child.free()
+ _weapon(tool,kit)
+ var colour: Color = ALLY_COLOUR if str(unit.team)=="ally" else ENEMY_COLOUR
+ var ring:=Basic.cylinder(actor,0.40,0.03,Vector3(0,0.02,0),colour,-1.0,14)
+ ring.name="TeamRing"
+ # Both sides wear the same tunic, so a surcoat over it is what actually tells
+ # friend from foe once the camera is back at its normal height.
+ var body: Node3D = rig.body
+ var surcoat:=Basic.box(body,Vector3(0.36,0.34,0.30),Vector3(0,0.20,0),colour)
+ surcoat.name="TeamSurcoat"
+ return actor
+
+func _weapon(parent: Node3D,kit: String) -> void:
+ match kit:
+  "sword":
+   Basic.box(parent,Vector3(0.045,0.60,0.014),Vector3(0,0.34,0),Color("c2c8ce"))
+   Basic.box(parent,Vector3(0.20,0.04,0.035),Vector3(0,0.04,0),Color("b98b3f"))
+   Basic.box(parent,Vector3(0.035,0.15,0.035),Vector3(0,-0.05,0),Color("4d3521"))
+   Basic.sphere(parent,0.032,Vector3(0,-0.14,0),Color("b98b3f"))
+  "bow":
+   for i in range(3):
+    var t:float=(i-1)*0.20
+    Basic.beam(parent,Vector3(absf(t)*0.10,t,0),Vector3(absf(t+0.20)*0.10,t+0.20,0),0.030,Color("7a5330"))
+   Basic.beam(parent,Vector3(0.02,-0.30,0),Vector3(0.02,0.30,0),0.008,Color("e8e0cc"))
+  _:
+   Basic.beam(parent,Vector3(0,-0.18,0),Vector3(0,0.40,0),0.034,Color("7a5330"))
+   Basic.box(parent,Vector3(0.15,0.17,0.032),Vector3(0.07,0.33,0),Color("aab0b6"))
+
+func _soldier_position(cell:Vector2i,id:int) -> Vector3:
+ var offset:=Vector2(sin(id*19.7),sin(id*13.1))*0.26
+ var x:float=cell.x*CELL+offset.x
+ var z:float=cell.y*CELL+offset.y
+ return Vector3(x,terrain.support_height(x,z),z)
 
 func _person_position(cell:Vector2i,id:int=-1,heading:Vector2i=Vector2i.ZERO) -> Vector3:
  var offset:=Vector2(sin(id*19.7),sin(id*13.1))*0.26

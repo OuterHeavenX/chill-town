@@ -431,5 +431,6 @@
   "Espadas de ferro": "铁制长剑",
   "A mina precisa encostar em uma jazida de ferro.": "矿场必须紧靠铁矿脉。",
   "Mina sem jazida": "矿场无矿脉",
-  "Fornos baixos transformam 1 tronco em 4 carvões. Disputa troncos com a serraria.": "矮窑把一根原木烧成四份木炭。与锯木厂争夺原木。"
+  "Fornos baixos transformam 1 tronco em 4 carvões. Disputa troncos com a serraria.": "矮窑把一根原木烧成四份木炭。与锯木厂争夺原木。",
+  "Acampamento saqueado. A companhia traz {loot}.": "营地已洗劫。部队带回{loot}。"
 }

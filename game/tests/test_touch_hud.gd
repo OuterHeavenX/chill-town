@@ -235,6 +235,38 @@ func run()->void:
 	expect(not game.sim.can_place("mine",Vector2i(10,17)).is_empty(),"the stone seam does not accept a mine")
 	game._select_build("")
 	expect(game.world.deposit_highlight.get_child_count()==0,"leaving the tool clears the highlight")
+	# --- The army is actually drawn: soldiers, the camp and the objective marker.
+	var camp_node:Node3D=game.world.get_node_or_null("EnemyCamp")
+	expect(camp_node!=null and camp_node.get_child_count()>0,"the enemy camp is built in the world")
+	expect(game.world.camp_cell()==game.sim.raid_camp,"the camp is drawn where this game put it")
+	expect(game.world.soldiers.is_empty(),"no soldiers before a company exists")
+	game.sim._ensure_battle()
+	expect(game.sim.battle.recruit("lancer","sword"),"a swordsman joins the company")
+	expect(game.sim.battle.recruit("archer"),"an archer joins the company")
+	game.world.sync(0.1);await frames(2)
+	var enemies:=0
+	var allies:=0
+	for unit in game.sim.battle.units:
+		if int(unit.hp)>0:
+			if str(unit.team)=="ally":allies+=1
+			else:enemies+=1
+	expect(allies==2 and enemies==6,"two of ours against the camp garrison (%d vs %d)"%[allies,enemies])
+	expect(game.world.soldiers.size()==allies+enemies,"every living soldier has a model (%d of %d)"%[game.world.soldiers.size(),allies+enemies])
+	var drawn_allies:=0
+	var hidden_enemies:=0
+	for id in game.world.soldiers:
+		var actor:Node3D=game.world.soldiers[id]
+		expect(actor.get_node_or_null("TeamRing")!=null,"soldier %d carries a team ring"%id)
+		if actor.visible:drawn_allies+=1
+		else:hidden_enemies+=1
+	expect(drawn_allies==2,"your soldiers are visible (%d)"%drawn_allies)
+	expect(hidden_enemies==6,"the garrison stays hidden until scouted (%d)"%hidden_enemies)
+	expect(game.world.order_marker.visible,"the company objective is marked on the ground")
+	# A fallen soldier leaves the field.
+	for unit in game.sim.battle.units:
+		if str(unit.team)=="ally":unit.hp=0;break
+	game.world.sync(0.1);await frames(2)
+	expect(game.world.soldiers.size()==allies+enemies-1,"a fallen soldier is removed from the field")
 	# --- The iron chain is offered and reads as English.
 	for kind in ["kiln","mine","foundry","forge"]:
 		expect(hud._available_build_kinds().has(kind),"the sandbox offers the "+kind)
