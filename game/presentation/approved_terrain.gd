@@ -88,7 +88,7 @@ func setup(village:RefCounted)->void:
  add_child(preload("res://presentation/approved_bank_ambience.gd").create(self))
  plaza=preload("res://presentation/approved_plaza.gd").create(self,sim);add_child(plaza)
  roads=Node3D.new();add_child(roads)
- material_road=StandardMaterial3D.new();material_road.albedo_color=Color("d0bd92");material_road.roughness=0.96
+ material_road=StandardMaterial3D.new();material_road.albedo_color=Color("9a9184");material_road.roughness=0.96
  material_road.albedo_texture=load("res://assets/illustrated/road.png")
  material_road.uv1_scale=Vector3(0.48,0.48,0.48)
  sync()
@@ -250,7 +250,7 @@ func _meadow()->void:
   for point:Vector3 in points:
    st.set_color(Color(0.86,0.91,0.75).lerp(Color(1.04,1.02,0.95),point.y/0.19));st.set_normal(Vector3.UP);st.add_vertex(point)
  mesh=st.commit()
- var mat:=StandardMaterial3D.new();mat.albedo_color=Color("749048");mat.vertex_color_use_as_albedo=true;mat.cull_mode=BaseMaterial3D.CULL_DISABLED;mat.roughness=1.0
+ var mat:=StandardMaterial3D.new();mat.albedo_color=Color("4b5c36");mat.vertex_color_use_as_albedo=true;mat.cull_mode=BaseMaterial3D.CULL_DISABLED;mat.roughness=1.0
  var shader:=Shader.new();shader.code="shader_type spatial; render_mode cull_disabled; varying vec4 tint; void vertex(){tint=COLOR; vec3 w=(MODEL_MATRIX*vec4(VERTEX,1.0)).xyz; VERTEX.x+=sin(TIME*1.5+w.x*0.9+w.z*0.7)*VERTEX.y*0.12;} void fragment(){vec3 c=tint.rgb*vec3(0.31,0.43,0.18); ALBEDO=OUTPUT_IS_SRGB ? c : pow(c,vec3(2.2));ROUGHNESS=1.0;}"
  var grass_mat:=ShaderMaterial.new();grass_mat.shader=shader
  # Small spatial batches can be culled independently. Positions, scale,

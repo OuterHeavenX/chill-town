@@ -17,8 +17,9 @@ void fragment(){
  float variation=mix(0.88,1.18,noise(p*0.15));
  vec3 grass=mix(fine,broad,0.45)*variation;
  float grass_value=dot(grass,vec3(0.2126,0.7152,0.0722));
- grass=mix(vec3(grass_value),grass,0.62)*vec3(0.69,0.90,0.83);
- vec3 meadow_base=vec3(0.35,0.43,0.23);
+ // Darker and greyer than the source meadow: moorland under an overcast sky.
+ grass=mix(vec3(grass_value),grass,0.50)*vec3(0.50,0.64,0.60);
+ vec3 meadow_base=vec3(0.21,0.27,0.17);
  if(!OUTPUT_IS_SRGB)meadow_base=pow(meadow_base,vec3(2.2));
  grass=mix(grass,meadow_base*variation,pigment_softness);
  // Three-to-six metre ground families keep texture but describe a clearing.
@@ -28,11 +29,11 @@ void fragment(){
  // Multiplicative hue shifts preserve every small grass mark in the source art.
  grass*=mix(vec3(1.0),vec3(0.78,1.035,0.70),smoothstep(0.36,0.78,thickets)*0.48);
  grass*=mix(vec3(1.0),vec3(1.16,1.08,0.86),smoothstep(0.40,0.76,patches)*0.45);
- vec3 worn=texture(earth_tex,p*0.165+vec2(0.13,0.41)).rgb*vec3(0.78,0.86,0.87);
+ vec3 worn=texture(earth_tex,p*0.165+vec2(0.13,0.41)).rgb*vec3(0.58,0.60,0.64);
  float bare=smoothstep(0.55,0.78,patches+noise(p*0.61)*0.08)*clearing;
  grass=mix(grass,worn,bare*0.66);
  float bank=1.0-smoothstep(-0.9,-0.12,world_pos.y);
- vec3 earth=mix(vec3(0.29,0.26,0.16),vec3(0.52,0.47,0.3),noise(p*0.7));
+ vec3 earth=mix(vec3(0.19,0.17,0.13),vec3(0.35,0.32,0.24),noise(p*0.7));
  if(!OUTPUT_IS_SRGB)earth=pow(earth,vec3(2.2));
  // Irregular vegetation tongues interrupt the engineered continuous earth line.
  float bank_growth=smoothstep(0.38,0.74,noise(vec2(p.x*0.8,p.y*0.62))+noise(p*1.1)*0.12);

@@ -54,13 +54,16 @@ func setup(village: RefCounted) -> void:
  sync(0.0)
 
 func _light() -> void:
- var sun := DirectionalLight3D.new();sun.rotation_degrees = Vector3(-48,-38,0);sun.light_color = Color("fff0d7");sun.light_energy = 0.85 if RenderingServer.get_current_rendering_method()=="gl_compatibility" else 1.06;sun.shadow_enabled = true
+ # An overcast, cold light: a pale sun low in a slate sky, deep shadow, and mist
+ # that swallows the far bank. The buildings keep their terracotta and teal, so
+ # the village reads as warm life under a grim sky rather than a grey smear.
+ var sun := DirectionalLight3D.new();sun.rotation_degrees = Vector3(-42,-38,0);sun.light_color = Color("d6dae4");sun.light_energy = 0.74 if RenderingServer.get_current_rendering_method()=="gl_compatibility" else 0.92;sun.shadow_enabled = true
  sun.directional_shadow_mode = DirectionalLight3D.SHADOW_ORTHOGONAL;sun.directional_shadow_max_distance = 150;sun.shadow_bias = 0.035;sun.shadow_normal_bias = 0.22;sun.directional_shadow_blend_splits = false;sun.light_angular_distance = 0.0;sun.shadow_blur=1.0;add_child(sun)
  var environment := WorldEnvironment.new();var env := Environment.new();environment.environment = env
- env.background_mode = Environment.BG_COLOR;env.background_color = Color("b5cbbb")
- env.ambient_light_source = Environment.AMBIENT_SOURCE_COLOR;env.ambient_light_color = Color("b9d2dc");env.ambient_light_energy = 0.36
+ env.background_mode = Environment.BG_COLOR;env.background_color = Color("262a33")
+ env.ambient_light_source = Environment.AMBIENT_SOURCE_COLOR;env.ambient_light_color = Color("5f6779");env.ambient_light_energy = 0.52
  env.tonemap_mode = Environment.TONE_MAPPER_FILMIC
- env.fog_enabled = true;env.fog_light_color = Color("bac9ad");env.fog_light_energy = 0.5;env.fog_density = 0.00035
+ env.fog_enabled = true;env.fog_light_color = Color("646c7a");env.fog_light_energy = 0.42;env.fog_density = 0.0011
  if RenderingServer.get_current_rendering_method() != "gl_compatibility":
   env.ssao_enabled = true;env.ssao_radius = 1.3;env.ssao_intensity = 1.45;env.ssao_power = 1.2;env.ssao_light_affect = 0.12
  add_child(environment)

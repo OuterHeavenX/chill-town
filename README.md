@@ -57,6 +57,13 @@ buildings, train professions, and expand the economy.
 - Woodcutters harvest the nearest tree they can reach; the sawmill turns trunks into timber; quarries need a stone deposit.
 - Grain goes through mill and bakery to loaves; workers eat at the inn.
 - Barracks take recruits plus a weapon. Army mode sets a company objective.
+- Houses are what let the village grow. The school makes nobody the village cannot
+  house: seventeen start with room for four more, and each finished house shelters
+  four. A queue that has outgrown the roofs waits and says so.
+- Once you have a company, the camp answers. Every few minutes a party marches on
+  your main building; a horn sounds when it sets out. Stop it, or it walks off with
+  gold, food, wood and stone from the store and rejoins the garrison, stronger. A
+  village that never arms itself is never raided.
 - An enemy camp sits across the bridge, in a different place each game. Scout it, take
   it with your company, and its stores come home to your village as loot. The garrison
   stays hidden until one of your soldiers actually sees it.
@@ -129,6 +136,18 @@ in the code are Portuguese keys translated through `game/locale/en.json`.
   cells are highlighted while the quarry tool is active (it was invisible before).
 - Woodcutters pick the nearest tree they can actually stand beside. They used to take the
   closest trunk and stall for good when it was walled in by the middle of a grove.
+- Gave the game a gothic cast: a cold overcast light, a slate sky, heavier mist,
+  darker moorland ground and river, and a charcoal-and-burgundy interface with aged
+  gold. The buildings keep their terracotta and teal, so the village reads as warm
+  life under a grim sky. The loading screen is dark to match.
+- Made houses matter. The population cap was a label nothing read; the school now
+  stops at the roof and says why.
+- Let the camp raid back, so a company has something to defend against. The
+  raiding party is visible on the road, and the village keeps the ledger honest
+  when it loses goods.
+- Fixed a save bug older than any of this: a game that had recruited a single
+  soldier could never be loaded again, because the validator insisted a village
+  in the default mode had no army.
 - Gave the village a soundscape. There were no audio files and one synthesised chime;
   now wind and the river play under everything, birds call now and then, and every
   job has its own sound — the axe, the saw, the quarry chisel, the builder's hammer,

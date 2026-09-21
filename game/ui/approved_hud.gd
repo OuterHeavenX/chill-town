@@ -16,14 +16,14 @@ signal sound_toggled
 
 const MissionSpec := preload("res://simulation/mission_spec.gd")
 
-const PAPER := Color("f5e4bd")
-const PANEL := Color("0b2429")
-const INK := Color("f1dfb4")
-const MUTED := Color("b4b69e")
-const BRONZE := Color("c59a50")
-const WINE := Color("e1bd71")
+const PAPER := Color("e8dcc6")
+const PANEL := Color("15131b")
+const INK := Color("e4d7ba")
+const MUTED := Color("9e9b93")
+const BRONZE := Color("ab863f")
+const WINE := Color("cba65c")
 const DANGER := Color("eeaa89")
-const SUCCESS := Color("b8d292")
+const SUCCESS := Color("a3b184")
 ## Reading order for the village report: the core first, then each chain.
 ## The most objectives any one mission may ask for.
 const OBJECTIVE_ROWS := 8
@@ -406,21 +406,21 @@ func _make_theme() -> Theme:
 	theme.set_color("font_color", "Label", INK)
 	theme.set_constant("separation", "HBoxContainer", 8)
 	theme.set_constant("separation", "VBoxContainer", 8)
-	theme.set_stylebox("normal", "Button", _style(Color("14383c"), Color("94713a"), 9))
-	theme.set_stylebox("hover", "Button", _style(Color("205057"), BRONZE, 9))
-	theme.set_stylebox("pressed", "Button", _style(Color("155d55"), BRONZE, 9))
+	theme.set_stylebox("normal", "Button", _style(Color("221e2a"), Color("8a6b34"), 9))
+	theme.set_stylebox("hover", "Button", _style(Color("2c2735"), BRONZE, 9))
+	theme.set_stylebox("pressed", "Button", _style(Color("3c2330"), BRONZE, 9))
 	theme.set_stylebox("focus", "Button", _focus_style())
-	theme.set_stylebox("disabled", "Button", _style(Color("1a3336"), Color("47605c"), 9))
+	theme.set_stylebox("disabled", "Button", _style(Color("1a1820"), Color("4a4650"), 9))
 	theme.set_color("font_color", "Button", INK)
 	theme.set_color("font_hover_color", "Button", INK)
 	theme.set_color("font_pressed_color", "Button", INK)
 	theme.set_color("font_disabled_color", "Button", MUTED)
 	theme.set_font_size("font_size", "Button", 17)
-	theme.set_stylebox("background", "ProgressBar", _style(Color("1a4143"), Color.TRANSPARENT, 4, 0))
+	theme.set_stylebox("background", "ProgressBar", _style(Color("221f2a"), Color.TRANSPARENT, 4, 0))
 	theme.set_stylebox("fill", "ProgressBar", _style(SUCCESS, Color.TRANSPARENT, 4, 0))
 	return theme
 
-func _style(bg: Color, border: Color = Color("94713a"), radius: int = 12, padding: int = 12) -> StyleBoxFlat:
+func _style(bg: Color, border: Color = Color("8a6b34"), radius: int = 12, padding: int = 12) -> StyleBoxFlat:
 	var style := StyleBoxFlat.new()
 	style.bg_color = bg
 	style.border_color = border
@@ -496,7 +496,7 @@ func _button(parent: Node, text: String, action: Callable, min_width: float = 0)
 	parent.add_child(button)
 	return button
 
-func _accent(button: Button, color: Color = Color("08664e")) -> void:
+func _accent(button: Button, color: Color = Color("4d1c28")) -> void:
 	button.add_theme_stylebox_override("normal", _style(color, color.lightened(0.12), 9))
 	button.add_theme_stylebox_override("hover", _style(color.lightened(0.1), BRONZE, 9))
 	button.add_theme_stylebox_override("pressed", _style(color.darkened(0.1), BRONZE, 9))
@@ -535,7 +535,7 @@ func _make_top_bar() -> void:
 		var button := _button(row,"",_resource_info.bind(item),86)
 		button.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 		button.tooltip_text = tr("{item}: toque para detalhes").format({"item":tr(ITEM_NAMES[item])})
-		button.add_theme_stylebox_override("normal",_style(Color("102f34"),Color.TRANSPARENT,8,4))
+		button.add_theme_stylebox_override("normal",_style(Color("201c27"),Color.TRANSPARENT,8,4))
 		var content := _hbox(button,5)
 		content.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
 		content.offset_left = 6
@@ -642,9 +642,9 @@ func _make_camera_pad() -> void:
 		button.custom_minimum_size = Vector2(48,48)
 		button.add_theme_font_size_override("font_size",22)
 		# Tight padding keeps every pad button exactly 48 px tall.
-		button.add_theme_stylebox_override("normal",_style(Color("14383c"),Color("94713a"),9,4))
-		button.add_theme_stylebox_override("hover",_style(Color("205057"),BRONZE,9,4))
-		button.add_theme_stylebox_override("pressed",_style(Color("155d55"),BRONZE,9,4))
+		button.add_theme_stylebox_override("normal",_style(Color("221e2a"),Color("8a6b34"),9,4))
+		button.add_theme_stylebox_override("hover",_style(Color("2c2735"),BRONZE,9,4))
+		button.add_theme_stylebox_override("pressed",_style(Color("3c2330"),BRONZE,9,4))
 		button.tooltip_text = tr(str(entry[2]))
 		if str(entry[1]).is_empty():
 			var icon := _glyph(button,str(entry[0]),30)
@@ -1462,7 +1462,7 @@ func _cycle_speed() -> void:
 func _refresh_speed() -> void:
 	for value in _speed_buttons:
 		var button: Button = _speed_buttons[value]
-		button.add_theme_stylebox_override("normal",_style(Color("08664e") if value == _speed else Color("14383c"),Color("94713a"),8,8))
+		button.add_theme_stylebox_override("normal",_style(Color("4d1c28") if value == _speed else Color("221e2a"),Color("94713a"),8,8))
 		button.add_theme_color_override("font_color",PAPER if value == _speed else INK)
 	_speed_cycle.text = "%d×" % _speed
 

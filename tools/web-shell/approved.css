@@ -1,14 +1,14 @@
-:root {color-scheme:dark;--ink:oklch(93% .042 88);--muted:oklch(77% .03 92);--gold:oklch(77% .115 83);--surface:oklch(29% .04 187);--line:oklch(53% .045 135);font-family:system-ui,-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif;color:var(--ink);background:var(--surface)}
+:root {color-scheme:dark;--ink:oklch(93% .042 88);--muted:oklch(77% .03 92);--gold:oklch(72% .11 80);--surface:oklch(12% .02 300);--line:oklch(33% .03 300);font-family:system-ui,-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif;color:var(--ink);background:var(--surface)}
 * {box-sizing:border-box}
 html,body {margin:0;width:100%;height:100%;overflow:hidden}
 button,summary {font:inherit}
-button {cursor:pointer;border:1px solid var(--line);border-radius:8px;padding:12px 18px;min-height:44px;color:var(--ink);background:oklch(36% .044 180)}
-button:hover {background:oklch(42% .05 180)}
+button {cursor:pointer;border:1px solid var(--line);border-radius:8px;padding:12px 18px;min-height:44px;color:var(--ink);background:oklch(19% .025 300)}
+button:hover {background:oklch(25% .03 300)}
 button:active {transform:translateY(1px)}
 button:focus-visible,summary:focus-visible {outline:3px solid var(--gold);outline-offset:4px}
 [hidden] {display:none!important}
 #canvas {display:block;border:0;touch-action:none;outline:none}
-#status {position:fixed;inset:0;z-index:10;display:flex;flex-direction:column;justify-content:center;overflow:auto;background:radial-gradient(ellipse at 82% 45%,oklch(37% .055 167),transparent 58%),var(--surface)}
+#status {position:fixed;inset:0;z-index:10;display:flex;flex-direction:column;justify-content:center;overflow:auto;background:radial-gradient(ellipse at 82% 45%,oklch(22% .06 335),transparent 58%),var(--surface)}
 .entry {display:grid;grid-template-columns:1fr 1fr;align-items:center;gap:32px;max-width:1100px;width:100%;padding:48px 64px 32px;margin:auto}
 .entry-copy {z-index:1}
 .eyebrow {display:flex;align-items:center;gap:16px;color:var(--gold);font-size:12px;font-weight:750;letter-spacing:.16em;margin:0 0 24px}
@@ -19,11 +19,11 @@ h1 {font:500 64px/.98 Georgia,"Times New Roman",serif;letter-spacing:-.045em;mar
 .progress-heading {display:flex;justify-content:space-between;align-items:baseline;gap:12px}
 #status-label {font-size:14px;font-weight:650;margin:0 0 12px}
 #status-percent {font-size:13px;font-variant-numeric:tabular-nums;color:var(--muted)}
-progress {display:block;width:100%;height:8px;border:0;border-radius:8px;overflow:hidden;appearance:none;background:oklch(40% .04 175);accent-color:var(--gold)}
-progress::-webkit-progress-bar {background:oklch(40% .04 175);border-radius:8px}
+progress {display:block;width:100%;height:8px;border:0;border-radius:8px;overflow:hidden;appearance:none;background:oklch(22% .02 300);accent-color:var(--gold)}
+progress::-webkit-progress-bar {background:oklch(22% .02 300);border-radius:8px}
 progress::-webkit-progress-value {background:var(--gold);border-radius:8px}
 progress::-moz-progress-bar {background:var(--gold);border-radius:8px}
-progress:indeterminate {background:linear-gradient(90deg,oklch(40% .04 175),var(--gold),oklch(40% .04 175));background-size:200% 100%;animation:loading 2s ease-out infinite}
+progress:indeterminate {background:linear-gradient(90deg,oklch(22% .02 300),var(--gold),oklch(22% .02 300));background-size:200% 100%;animation:loading 2s ease-out infinite}
 progress:indeterminate::-webkit-progress-bar {background:transparent}
 @keyframes loading {to {background-position:-200% 0}}
 #status-detail {min-height:2.8em;color:var(--muted);font-size:12px;line-height:1.5;margin:10px 0 0}
@@ -39,8 +39,8 @@ h2 {font-size:20px;line-height:1.3;margin:0 0 12px;outline:none}
 details {font-size:12px;margin:12px 0 18px;color:var(--muted)}
 summary {cursor:pointer;padding:4px 0;width:fit-content}
 pre {font:11px/1.6 ui-monospace,monospace;white-space:pre-wrap;overflow-wrap:anywhere;max-height:120px;overflow:auto}
-.primary {margin-top:8px;color:oklch(25% .028 174);background:var(--gold);border-color:var(--gold);font-size:14px;font-weight:700}
-.primary:hover {background:oklch(84% .1 83)}
+.primary {margin-top:8px;color:oklch(14% .02 300);background:var(--gold);border-color:var(--gold);font-size:14px;font-weight:700}
+.primary:hover {background:oklch(79% .1 80)}
 #screen-hint {position:fixed;z-index:20;top:104px;left:12px;right:12px;display:flex;align-items:center;gap:10px;flex-wrap:wrap;padding:14px;background:var(--surface);border:1px solid var(--line);border-radius:8px;font-size:13px}
 #screen-hint p {margin:0;flex:1;min-width:150px}
 #screen-hint #screen-status {flex-basis:100%;color:var(--muted);font-size:12px}

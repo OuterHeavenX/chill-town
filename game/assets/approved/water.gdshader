@@ -23,9 +23,9 @@ void fragment(){
  vec3 pigment=texture(water_tex,uv+distortion).rgb;
  vec3 slow=texture(water_tex,p*0.12+vec2(0.31,-TIME*0.015)).rgb;
  pigment=mix(pigment,slow,0.18);
- vec3 deeper_water=vec3(0.10,0.31,0.34);
- vec3 shallow_water=vec3(0.26,0.48,0.42);
- vec3 foam_color=vec3(0.76,0.85,0.72);
+ vec3 deeper_water=vec3(0.05,0.13,0.17);
+ vec3 shallow_water=vec3(0.13,0.24,0.26);
+ vec3 foam_color=vec3(0.56,0.62,0.58);
  if(!OUTPUT_IS_SRGB){deeper_water=pow(deeper_water,vec3(2.2));shallow_water=pow(shallow_water,vec3(2.2));foam_color=pow(foam_color,vec3(2.2));}
  // Broad depth/current bands carry the colour; the source texture remains visible.
  vec3 depth_pigment=mix(shallow_water,deeper_water,depth*mix(0.68,1.0,current));
