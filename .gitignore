@@ -10,3 +10,6 @@ dist/
 .env.*
 *.log
 node_modules/
+
+# dream-loop working folder (see .claude/skills/dream-loop)
+.dream-loop/
