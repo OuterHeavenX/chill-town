@@ -318,6 +318,17 @@ func run()->void:
 	for child in world.get_children():
 		if child is CPUParticles3D and child.name=="Dust":dust_after+=1
 	expect(dust_after==dust_before+1,"finishing a building kicks up dust (%d -> %d)"%[dust_before,dust_after])
+	# --- Wind: the shared tree material sways, and only what is green and high.
+	var EnvModels=preload("res://presentation/approved_environment.gd")
+	var oak:Node3D=EnvModels.tree(1)
+	var geometry:MeshInstance3D=oak.get_node("Geometry")
+	var leafy:Material=geometry.material_override
+	expect(leafy is ShaderMaterial and str(leafy.shader.code).contains("sway_strength"),"trees carry the wind shader")
+	expect(float(leafy.get_shader_parameter("sway_strength"))>0.0,"the wind is blowing")
+	expect(str(leafy.shader.code).contains("grain") and str(leafy.shader.code).contains("tint"),"the shader keeps the grain and vertex colour of the old look")
+	var stone:Node3D=EnvModels.rock(2)
+	expect(stone.get_node("Geometry").material_override==leafy,"rocks share the material and are kept still by their colour, not a second material")
+	oak.free();stone.free()
 	# --- Desktop width returns to the full layout.
 	root.size=Vector2i(1280,800);await frames(4)
 	expect(hud._help_dock_button.visible and hud._resource_buttons.population.visible,"desktop layout restores every control")

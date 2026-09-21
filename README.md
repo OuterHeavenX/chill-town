@@ -144,7 +144,9 @@ in the code are Portuguese keys translated through `game/locale/en.json`.
 - Added a day–night cycle and the small things that make a place feel worked:
   chimney smoke tied to who is actually at work, firelight at every hearth and
   forge mouth, lanterns that answer the dark, self-lit embers, lit windows at
-  night, and a dust burst when a building finishes. All of it runs on the
+  night, a dust burst when a building finishes, and wind in the trees — every
+  canopy sways on its own phase, told apart from its trunk by colour and height
+  in the shader, since the tree meshes carry no separate leaf surface. All of it runs on the
   Compatibility renderer the web build uses — CPU particles, a few omni lights and
   additive billboards, no post-processing — so phones are not asked for more.
 - Gave the game a gothic cast: a cold overcast light, a slate sky, heavier mist,

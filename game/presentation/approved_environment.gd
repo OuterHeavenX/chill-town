@@ -9,7 +9,7 @@ static var _trees: Dictionary = {}
 static var _rocks: Dictionary = {}
 static var _oaks: Dictionary = {}
 static var _stumps: Dictionary = {}
-static var _material: StandardMaterial3D
+static var _material: Material
 
 class Geometry extends RefCounted:
 	var positions := PackedVector3Array()
@@ -100,23 +100,65 @@ static func _mesh_for(kind:String,variant:int)->ArrayMesh:
 		"stump":return _cut_stump(variant)
 	return _pine(variant)
 
+const WIND_SHADER := """
+shader_type spatial;
+uniform sampler2D grain : source_color, filter_linear_mipmap, repeat_enable;
+uniform float sway_strength : hint_range(0.0, 0.4) = 0.11;
+uniform float sway_speed : hint_range(0.0, 4.0) = 1.15;
+varying vec4 tint;
+varying vec3 opos;
+varying vec3 onormal;
+void vertex() {
+	tint = COLOR;
+	opos = VERTEX;
+	onormal = NORMAL;
+	// Foliage is what is green and high. Bark, stone and moss on a rock stay put.
+	float green = COLOR.g - max(COLOR.r, COLOR.b);
+	float leaf = smoothstep(0.015, 0.10, green);
+	float height = clamp(VERTEX.y / 3.5, 0.0, 1.0);
+	float weight = leaf * height * height;
+	// Each tree keeps its own phase, and each bough its own flutter.
+	vec3 tree = NODE_POSITION_WORLD;
+	float t = TIME * sway_speed + tree.x * 0.31 + tree.z * 0.23;
+	float gust = sin(t) + 0.45 * sin(t * 2.17 + VERTEX.z * 1.3) + 0.25 * sin(t * 3.9 + VERTEX.x * 2.1);
+	vec2 wind_dir = normalize(vec2(0.82, 0.57));
+	VERTEX.xz += wind_dir * gust * weight * sway_strength;
+	VERTEX.y -= abs(gust) * weight * sway_strength * 0.15;
+}
+void fragment() {
+	vec3 colour = tint.rgb;
+	if (!OUTPUT_IS_SRGB) { colour = pow(colour, vec3(2.2)); }
+	vec3 n = abs(normalize(onormal));
+	n = n / (n.x + n.y + n.z + 0.0001);
+	vec3 p = opos * 2.5;
+	vec3 g = texture(grain, p.yz).rgb * n.x + texture(grain, p.xz).rgb * n.y + texture(grain, p.xy).rgb * n.z;
+	ALBEDO = colour * g;
+	ROUGHNESS = 0.94;
+	SPECULAR = 0.12;
+}
+"""
+
 static func _instance(mesh: ArrayMesh, label: String, variant: int) -> Node3D:
 	if _material==null:
-		_material=StandardMaterial3D.new()
-		_material.resource_name="ApprovedEnvironment_VertexPBR"
-		_material.vertex_color_use_as_albedo=true
-		_material.vertex_color_is_srgb=true
-		_material.roughness=0.94
-		_material.metallic_specular=0.12
 		var noise := FastNoiseLite.new(); noise.seed=12071; noise.frequency=0.19
 		noise.fractal_octaves=3
 		var grain := NoiseTexture2D.new(); grain.width=256; grain.height=256
 		grain.noise=noise; grain.seamless=true
 		var ramp := Gradient.new(); ramp.set_color(0,Color(0.65,0.65,0.65)); ramp.set_color(1,Color.WHITE)
 		grain.color_ramp=ramp
-		_material.albedo_texture=grain
-		_material.uv1_triplanar=true
-		_material.uv1_scale=Vector3.ONE*2.5
+		# The same vertex-colour, triplanar-grain look the standard material gave,
+		# plus wind. Every tree, stump and rock shares this, and the meshes carry
+		# no leaf surface, so a vertex counts as foliage by being green and high:
+		# canopies swing, boughs bend, trunks and stones stand still.
+		var wind := Shader.new()
+		wind.code = WIND_SHADER
+		var swaying := ShaderMaterial.new()
+		swaying.resource_name="ApprovedEnvironment_VertexPBR"
+		swaying.shader=wind
+		swaying.set_shader_parameter("grain",grain)
+		swaying.set_shader_parameter("sway_strength",0.11)
+		swaying.set_shader_parameter("sway_speed",1.15)
+		_material=swaying
 	var root := Node3D.new(); root.name=label+str(variant)
 	var model := MeshInstance3D.new(); model.name="Geometry"
 	model.mesh=mesh; model.material_override=_material; root.add_child(model)
