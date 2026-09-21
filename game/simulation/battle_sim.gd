@@ -7,6 +7,17 @@ const CAMP := Vector2i(30, 14)
 ## Enemy garrison positions, relative to the camp.
 const GARRISON := [[-1, -1], [0, -1], [1, -1], [1, 0]]
 const GARRISON_ARCHERS := [[2, 1], [2, 2]]
+## Raids. Once a village has a company the camp answers in kind: a party sets out
+## every so often for the village's front door and, if it stands there unopposed
+## long enough, carries off part of the store. Ticks, at ten per second.
+const RAID_FIRST := 2400
+const RAID_INTERVAL := 3600
+const RAID_PARTY := [["lancer", [-1, -1]], ["lancer", [0, -1]], ["lancer", [1, -1]], ["archer", [1, 1]]]
+const RAID_HOLD := 30
+## How near the door counts as at it. The party halts in formation a few cells
+## short of the anchor, so this is the plaza, not the doorstep.
+const RAID_REACH := 20
+const RAID_CAP := 12
 const RALLY := Vector2i(17, 12)
 const FALLBACK := Vector2i(15, 14)
 const DIRECTIONS := [Vector2i.RIGHT, Vector2i.DOWN, Vector2i.LEFT, Vector2i.UP]
@@ -35,6 +46,13 @@ var tick: int = 0
 var capture_progress: int = 0
 var order_revision: int = 0
 var camp := CAMP
+## Where raiders march. Negative means this battle never raids (tests, old saves).
+var home := Vector2i(-1, -1)
+var raid_active := false
+var next_raid := 0
+var raid_progress := 0
+var raid_hits := 0
+var raids_repelled := 0
 
 var _walkable: Callable
 var _pathfinder: Callable
@@ -46,10 +64,16 @@ var _last_reason: String = ""
 var _order_finished: bool = false
 
 
-func setup(walkable: Callable, pathfinder: Callable, garrison: bool = true, camp_cell: Vector2i = Vector2i(-1, -1)) -> void:
+func setup(walkable: Callable, pathfinder: Callable, garrison: bool = true, camp_cell: Vector2i = Vector2i(-1, -1), home_cell: Vector2i = Vector2i(-1, -1)) -> void:
 	_walkable = walkable
 	_pathfinder = pathfinder
 	camp = camp_cell if camp_cell.x >= 0 else CAMP
+	home = home_cell
+	raid_active = false
+	next_raid = RAID_FIRST
+	raid_progress = 0
+	raid_hits = 0
+	raids_repelled = 0
 	units.clear()
 	events.clear()
 	_known.clear()
@@ -147,6 +171,7 @@ func step() -> void:
 	defeated = false
 	_refresh_reserves()
 	_assess_preservation()
+	_raids()
 	var damage: Dictionary = {}
 	for unit in units:
 		if unit.hp <= 0:
@@ -174,6 +199,44 @@ func step() -> void:
 		_evaluate_status()
 
 
+func _raids() -> void:
+	if home.x < 0 or captured:
+		return
+	if not raid_active:
+		if tick >= next_raid and _alive("enemy").size() < RAID_CAP:
+			raid_active = true
+			raid_progress = 0
+			for spec in RAID_PARTY:
+				if _spawn("enemy", spec[0], camp + Vector2i(spec[1][0], spec[1][1])):
+					units.back().raiding = true
+		return
+	var party := 0
+	var at_door := 0
+	for unit in units:
+		if unit.team == "enemy" and unit.hp > 0 and bool(unit.get("raiding", false)):
+			party += 1
+			if _distance_squared(unit.cell, home) <= RAID_REACH:
+				at_door += 1
+	if party == 0:
+		raid_active = false
+		raids_repelled += 1
+		next_raid = tick + RAID_INTERVAL
+		return
+	raid_progress = raid_progress + 1 if at_door > 0 else 0
+	if raid_progress >= RAID_HOLD:
+		raid_hits += 1
+		# Loaded up, the party goes home and swells the garrison there.
+		for unit in units:
+			unit.raiding = false
+		raid_active = false
+		raid_progress = 0
+		next_raid = tick + RAID_INTERVAL
+
+
+static func _is_raider(unit: Dictionary) -> bool:
+	return unit.team == "enemy" and bool(unit.get("raiding", false))
+
+
 func _spawn(team: String, role: String, preferred: Vector2i, kit: String = "") -> bool:
 	var location := _free_near(preferred, -1, 4)
 	if location == Vector2i(-1, -1):
@@ -194,7 +257,7 @@ func _refresh_vision() -> void:
 		if unit.team == "ally":
 			unit.visible = true
 			continue
-		unit.visible = false
+		unit.visible = _is_raider(unit)
 		for observer in allies:
 			if _distance_squared(observer.cell, unit.cell) <= 64 and _line_clear(observer.cell, unit.cell):
 				unit.visible = true
@@ -228,6 +291,8 @@ func _nearest_enemy(unit: Dictionary) -> Dictionary:
 
 func _may_engage(unit: Dictionary, cell: Vector2i) -> bool:
 	if unit.team == "enemy":
+		if _is_raider(unit):
+			return _distance_squared(unit.cell, cell) <= 36
 		return _distance_squared(camp, cell) <= 81
 	if order == "retreat" or order == "regroup" or unit.retreating:
 		return _distance_squared(unit.cell, cell) <= 2
@@ -273,9 +338,10 @@ func _decide_movement(unit: Dictionary, enemy: Dictionary) -> void:
 			destination = _archer_goal(unit, enemy)
 			unit.state = "Buscando posição de tiro" if unit.ammo > 0 else "Sem munição; protegendo-se"
 	else:
-		destination = _formation_slot(unit, target if unit.team == "ally" else camp)
+		var anchor: Vector2i = target if unit.team == "ally" else (home if _is_raider(unit) else camp)
+		destination = _formation_slot(unit, anchor)
 		unit.state = "Em formação" if unit.cell == destination else "Marchando"
-	if unit.team == "enemy" and _distance_squared(destination, camp) > 64:
+	if unit.team == "enemy" and not _is_raider(unit) and _distance_squared(destination, camp) > 64:
 		destination = _formation_slot(unit, camp)
 	if unit.team == "ally" and order == "defend" and _distance_squared(destination, target) > 36:
 		destination = _formation_slot(unit, target)
@@ -573,7 +639,8 @@ func snapshot() -> Dictionary:
 		"defeated": defeated, "events": events.duplicate(true), "capture_progress": capture_progress,
 		"order_revision": order_revision, "next_id": _next_id, "initial_health": _initial_health,
 		"risk_ticks": _risk_ticks, "known": memory, "last_reason": _last_reason, "order_finished": _order_finished,
-		"camp": [camp.x, camp.y]}
+		"camp": [camp.x, camp.y], "home": [home.x, home.y], "raid_active": raid_active, "next_raid": next_raid,
+		"raid_progress": raid_progress, "raid_hits": raid_hits, "raids_repelled": raids_repelled}
 
 
 func restore(data: Dictionary) -> bool:
@@ -586,6 +653,17 @@ func restore(data: Dictionary) -> bool:
 	if data.has("camp") and not _saved_cell(data.get("camp")):
 		return false
 	var restored_camp: Vector2i = Vector2i(int(data.camp[0]), int(data.camp[1])) if data.has("camp") else CAMP
+	# Saves from before raids carry none of these; such a game keeps not raiding.
+	var restored_home := Vector2i(-1, -1)
+	if data.has("home"):
+		if not data.home is Array or data.home.size() != 2 or not _integer(data.home[0], -1, 1000) or not _integer(data.home[1], -1, 1000):
+			return false
+		restored_home = Vector2i(int(data.home[0]), int(data.home[1]))
+	for key in ["next_raid", "raid_progress", "raid_hits", "raids_repelled"]:
+		if data.has(key) and not _integer(data.get(key), 0, 1000000000):
+			return false
+	if data.has("raid_active") and typeof(data.raid_active) != TYPE_BOOL:
+		return false
 	for key in ["captured", "defeated", "order_finished"]:
 		if typeof(data.get(key)) != TYPE_BOOL:
 			return false
@@ -618,6 +696,8 @@ func restore(data: Dictionary) -> bool:
 		if not _integer(source.get("cooldown"), 0, 20) or typeof(source.get("state")) != TYPE_STRING:
 			return false
 		if typeof(source.get("visible")) != TYPE_BOOL or typeof(source.get("retreating")) != TYPE_BOOL or typeof(source.get("reserve")) != TYPE_BOOL:
+			return false
+		if source.has("raiding") and typeof(source.raiding) != TYPE_BOOL:
 			return false
 		var unit: Dictionary = source.duplicate(true)
 		unit.kit = saved_kit
@@ -664,6 +744,12 @@ func restore(data: Dictionary) -> bool:
 	events = restored_events
 	_known = known
 	camp = restored_camp
+	home = restored_home
+	raid_active = bool(data.get("raid_active", false))
+	next_raid = int(data.get("next_raid", RAID_FIRST))
+	raid_progress = int(data.get("raid_progress", 0))
+	raid_hits = int(data.get("raid_hits", 0))
+	raids_repelled = int(data.get("raids_repelled", 0))
 	tick = int(data.tick)
 	order = data.order
 	target = Vector2i(int(data.target[0]), int(data.target[1]))

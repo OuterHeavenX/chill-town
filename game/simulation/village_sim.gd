@@ -38,6 +38,9 @@ const RECIPE_STOCK := 6
 ## What the raiders bring home from a camp they take. Booked as production so the
 ## conservation ledger still balances: goods enter the world, they are not moved.
 const RAID_LOOT := {"gold": 60, "iron": 6, "wood": 30, "stone": 20, "food": 40}
+## What a raiding party carries off if it reaches the main building unopposed.
+## Only what is free in the store; goods already promised to a site stay put.
+const RAID_STEAL := {"gold": 15, "food": 25, "wood": 12, "stone": 8}
 var definitions: Dictionary = {
 	"hall": {"name":"Centro da vila", "description":"Administra a vila. Os moradores encontram trabalho sozinhos.", "cost":{}, "profession":"", "duration":12.0, "catalog_id":"bld_01_centro_da_vila"},
 	"house": {"name":"Casa", "description":"Abrigo civil. A população nova sai da escola, não das casas.", "cost":{"wood":4,"stone":2}, "profession":"", "duration":10.0, "catalog_id":"bld_02_casas"},
@@ -87,6 +90,9 @@ var stone_deposits: Array[Vector2i] = []
 var iron_deposits: Array[Vector2i] = []
 var raid_camp := Battle.CAMP
 var raid_looted := false
+var _raid_seen := false
+var _raid_hits_seen := 0
+var _raids_repelled_seen := 0
 
 func setup(peaceful_mode: bool = false) -> void:
 	peaceful = peaceful_mode
@@ -296,6 +302,9 @@ func command(kind: String, payload: Dictionary = {}) -> Dictionary:
 			var quantity := clampi(int(payload.get("quantity",1)),1,5)
 			for i in range(quantity):
 				training.append({"id":_id(),"role":role,"worker":-1,"building":-1,"progress":0.0,"reason":tr("Aguardando vaga")})
+			# Queue freely; the school itself waits for a roof before it makes anyone.
+			if workers.size()+training.size() > population_capacity():
+				return _result(true,tr("Formação na fila. Faltam casas para todos: a escola espera por moradia."))
 			return _result(true,tr("Formação na fila. O centro seleciona moradores automaticamente."))
 		"cancel_training":
 			for t in training:
@@ -403,7 +412,10 @@ func _ensure_battle() -> void:
 	if battle != null:
 		return
 	battle = Battle.new()
-	battle.setup(_military_walkable, find_path, false, raid_camp)
+	# Raiders march on the main building's door, so the village is the target.
+	var door: Vector2i = buildings[0].entrance if not buildings.is_empty() else Vector2i(-1, -1)
+	battle.setup(_military_walkable, find_path, false, raid_camp, door)
+	_sync_raid_watch()
 
 
 func _recruit(role: String) -> Dictionary:
@@ -511,6 +523,7 @@ func step() -> void:
 		battle.step()
 		if bool(battle.captured) and not raid_looted:
 			_collect_loot()
+		_watch_raids()
 		if bool(battle.defeated) and not lost:
 			lost = true
 			_emit(tr("A companhia foi derrotada."), "chime")
@@ -521,6 +534,49 @@ func step() -> void:
 		elif mission == null and _completed("training") > 0 and _completed("inn") > 0 and _completed("lumber") > 0 and _completed("quarry") > 0:
 			won = true
 			_emit(tr("Escola, taverna, lenhador e pedreira estão prontos. Você pode continuar construindo."))
+
+## The village learns of raids by watching the battle, the same way it learns of
+## the camp falling. A horn sounds when a party sets out; the loss is booked
+## when they reach the door.
+func _watch_raids() -> void:
+	var active := bool(battle.get("raid_active"))
+	if active and not _raid_seen:
+		_emit(tr("Saqueadores avistados! Uma tropa marcha do acampamento contra a vila."), "horn")
+	_raid_seen = active
+	var hits := int(battle.get("raid_hits"))
+	if hits > _raid_hits_seen:
+		_raid_hits_seen = hits
+		_plunder()
+	var repelled := int(battle.get("raids_repelled"))
+	if repelled > _raids_repelled_seen:
+		_raids_repelled_seen = repelled
+		stats.raids_repelled = int(stats.get("raids_repelled", 0)) + 1
+		_emit(tr("Os saqueadores foram rechaçados."), "chime")
+
+
+func _sync_raid_watch() -> void:
+	if battle == null:
+		return
+	_raid_seen = bool(battle.get("raid_active"))
+	_raid_hits_seen = int(battle.get("raid_hits"))
+	_raids_repelled_seen = int(battle.get("raids_repelled"))
+
+
+func _plunder() -> void:
+	var taken: Array[String] = []
+	for item: String in RAID_STEAL:
+		var amount: int = mini(int(RAID_STEAL[item]), available(item))
+		if amount <= 0:
+			continue
+		stock[item] -= amount
+		consumed[item] += amount
+		taken.append("%d %s" % [amount, tr(str(ITEM_NAMES.get(item, item)))])
+	stats.raids_suffered = int(stats.get("raids_suffered", 0)) + 1
+	if taken.is_empty():
+		_emit(tr("Saqueadores chegaram ao prédio principal, mas não havia nada solto para levar."), "chime")
+	else:
+		_emit(tr("Saqueadores levaram {loot} do armazém.").format({"loot": ", ".join(taken)}), "chime")
+
 
 ## Taking the camp is worth something: its stores come home to the village.
 func _collect_loot() -> void:
@@ -1124,6 +1180,10 @@ func _update_training() -> void:
 			if center.is_empty():
 				t.reason = tr("Centro ocupado ou sem instrutor")
 				continue
+			# A roof before a coin: the school makes nobody the village cannot house.
+			if workers.size() >= population_capacity():
+				t.reason = tr("Sem moradia: construa casas")
+				continue
 			if int(center.input.get("gold",0)) < 1:
 				t.reason = tr("Aguardando ouro na escola")
 				continue
@@ -1195,7 +1255,7 @@ func notice() -> String:
 		if b.reason in [tr("Nenhum construtor formado"),tr("Construtores ocupados: aguardando vez"),tr("Nenhum servente formado. Use o treinamento")]:
 			return b.reason
 	for t in training:
-		if t.reason == tr("Sem moradores livres para formação"):
+		if t.reason in [tr("Sem moradores livres para formação"),tr("Sem moradia: construa casas")]:
 			return t.reason
 	return tr("Os habitantes trabalham sozinhos. Toque em um prédio para acompanhar.")
 
@@ -1280,12 +1340,26 @@ func restore(state: Dictionary) -> bool:
 	var candidate: RefCounted = get_script().new()
 	candidate.setup(peaceful)
 	candidate._apply(s)
-	if not peaceful and not candidate.battle.restore(s.battle):
+	if not candidate._restore_battle(s):
 		return false
 	if not candidate.conservation_errors().is_empty():
 		return false
 	_apply(s)
-	return true if peaceful else battle.restore(s.battle)
+	return _restore_battle(s)
+
+
+## The company comes back with the village, whichever mode the game runs in; a
+## save with no company leaves none behind.
+func _restore_battle(s: Dictionary) -> bool:
+	if s.get("battle") == null:
+		if peaceful:
+			battle = null
+		return true
+	_ensure_battle()
+	if battle == null or not battle.restore(s.battle):
+		return false
+	_sync_raid_watch()
+	return true
 
 func _apply(s: Dictionary) -> void:
 	tick = int(s.tick)
@@ -1325,10 +1399,11 @@ func _valid_save(s: Dictionary) -> bool:
 	# Old version-1 saves are standard games. A scene never imports the other mode.
 	if s.get("mode","standard") != ("peaceful" if peaceful else "standard"):
 		return false
-	if peaceful:
-		if not s.has("battle") or s.battle != null:
-			return false
-	elif not s.get("battle") is Dictionary:
+	if not s.has("battle"):
+		return false
+	if s.battle != null and not s.battle is Dictionary:
+		return false
+	if not peaceful and s.battle == null:
 		return false
 	for key in ["tick","next_id","food_shortage","arrival_ticks"]:
 		if not _safe_int(s.get(key)):

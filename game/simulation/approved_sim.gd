@@ -90,8 +90,11 @@ func setup(_peaceful_mode: bool = true) -> void:
 	_emit(tr("A praça reúne os moradores livres. Trace uma estrada até a escola; a equipe trabalha sozinha."))
 
 
+## The village starts with seventeen people. Four more fit before anyone needs a
+## roof, and every house after that shelters four: the number is what the school
+## is allowed to reach, so houses are what lets a village grow.
 func population_capacity() -> int:
-	return 17+4*_completed("house")
+	return 21+4*_completed("house")
 
 
 func storage_capacity() -> int:
@@ -732,6 +735,10 @@ func _update_training() -> void:
 					break
 			if center.is_empty():
 				t.reason = tr("Conecte a escola ou aguarde um instrutor e uma vaga")
+				continue
+			# A roof before a coin: the school makes nobody the village cannot house.
+			if workers.size() >= population_capacity():
+				t.reason = tr("Sem moradia: construa casas")
 				continue
 			if int(center.input.get("gold",0)) < 1:
 				t.reason = tr("Aguardando ouro na escola")

@@ -119,8 +119,7 @@ func _process(delta: float) -> void:
 			var event: Dictionary = sim.events.back()
 			var message: String = str(event.text)
 			hud.show_message(message)
-			if str(event.get("tone","")) == "chime":
-				_chime()
+			audio.notice(str(event.get("tone","")))
 
 func _select_build(kind: String) -> void:
 	_reset_pointer()
@@ -452,9 +451,6 @@ func _toggle_sound() -> void:
 	audio.set_enabled(not audio.enabled)
 	hud.set_sound_enabled(audio.enabled)
 	hud.show_message(tr("Sons ativados") if audio.enabled else tr("Sons desativados"))
-
-func _chime() -> void:
-	audio.chime()
 
 func _extend_road(cell:Vector2i) -> void:
 	if cell.x < 1 or cell.y < 1 or cell.x >= Village.WIDTH-1 or cell.y >= Village.HEIGHT-1: return

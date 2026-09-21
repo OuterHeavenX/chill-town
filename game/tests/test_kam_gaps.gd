@@ -62,6 +62,8 @@ func run() -> void:
 	_test_market_gold()
 	_test_army_equipment()
 	_test_raid_camp_and_loot()
+	_test_housing_gates_growth()
+	_test_raiders_come_for_the_village()
 	_test_mission_lock()
 	print("KAM_GAPS_RESULT checks=", checks, " failures=", failures)
 	quit(0 if failures.is_empty() else 1)
@@ -244,10 +246,24 @@ func _test_iron_chain() -> void:
 	link_entrance(sim, sim.buildings.back().entrance)
 	expect(sim.command("build", {"kind": "forge", "cell": Vector2i(4, 21)}).ok, "the forge places")
 	link_entrance(sim, sim.buildings.back().entrance)
+	# Six trainees on top of seventeen villagers is more than the starting roofs
+	# hold, so the chain needs houses first: that is the rule now, not a detail.
+	# Both plots go down before either road: a road drawn first would run straight
+	# across the other plot, and the pathfinder only routes around what exists.
+	for cell in [Vector2i(18, 20), Vector2i(10, 20)]:
+		var placed: Dictionary = sim.command("build", {"kind": "house", "cell": cell})
+		expect(placed.ok, "a house places at %s: %s" % [cell, placed.message])
+	link_entrance(sim, sim.buildings[-2].entrance)
+	link_entrance(sim, sim.buildings[-1].entrance)
 	for role in ["miner", "collier", "lumberjack", "lumberjack", "smelter", "blacksmith"]:
 		sim.command("train", {"role": role})
 	for kind in ["mine", "kiln", "lumber", "foundry", "forge"]:
 		expect(wait_complete(sim, kind, 9000), kind + " completes through autonomous builders")
+	for i in range(9000):
+		if sim._completed("house") >= 2:
+			break
+		sim.step()
+	expect(sim._completed("house") >= 2 and sim.population_capacity() >= 29, "two houses raise the roof to 29 (%d)" % sim.population_capacity())
 	var swords := 0
 	for i in range(30000):
 		sim.step()
@@ -357,6 +373,85 @@ func _test_raid_camp_and_loot() -> void:
 	for i in range(400):
 		sim.step()
 	expect(int(sim.stock.gold) == gold_after, "a camp already taken pays nothing more")
+
+
+## Houses used to be decoration: the cap was a label nothing read. The school now
+## stops at the roof and says so, and a house lets it continue.
+func _test_housing_gates_growth() -> void:
+	var sim := Approved.new()
+	sim.setup()
+	connect_school(sim)
+	expect(sim.population_capacity() == 21, "seventeen villagers and room for four more before a house is needed (%d)" % sim.population_capacity())
+	for i in range(8):
+		expect(sim.command("train", {"role": "servant"}).ok, "training queues even before the roofs exist")
+	advance(sim, 4000)
+	expect(sim.workers.size() == 21, "the school stops exactly at the roof (%d)" % sim.workers.size())
+	var waiting := false
+	for t in sim.training:
+		if str(t.reason) == sim.tr("Sem moradia: construa casas"):
+			waiting = true
+	expect(waiting, "the queue says it is waiting for housing")
+	expect(sim.notice() == sim.tr("Sem moradia: construa casas"), "the village notice points at houses")
+	expect(sim.command("build", {"kind": "house", "cell": Vector2i(16, 6)}).ok, "a house places")
+	link_entrance(sim, sim.buildings.back().entrance)
+	expect(wait_complete(sim, "house", 6000), "the house completes")
+	expect(sim.population_capacity() == 25, "a house shelters four more (%d)" % sim.population_capacity())
+	advance(sim, 3000)
+	expect(sim.workers.size() >= 22 and sim.workers.size() <= 25, "the school carries on once there is a roof (%d)" % sim.workers.size())
+	expect(sim.conservation_errors().is_empty(), "housing keeps the ledger: " + str(sim.conservation_errors()))
+
+
+## The camp answers a village that arms itself. A party marches on the main
+## building and, if nobody stops it, walks off with part of the store.
+func _test_raiders_come_for_the_village() -> void:
+	var sim := Approved.new()
+	sim.setup()
+	connect_school(sim)
+	sim._ensure_battle()
+	var battle: RefCounted = sim.battle
+	expect(battle.home == sim.buildings[0].entrance, "raiders march on the main building's door")
+	expect(not battle.raid_active and int(battle.next_raid) == int(battle.RAID_FIRST), "no raid until the village has had time to settle")
+	# One soldier parked out of the way keeps the company alive without a fight;
+	# an empty company reads as defeated and the battle stops stepping.
+	expect(battle.recruit("lancer"), "a lone guard stands the watch")
+	var guard: Dictionary = battle.units.back()
+	guard.cell = Vector2i(4, 21)
+	battle.order = "defend"
+	battle.target = Vector2i(4, 21)
+	var gold_before := int(sim.stock.gold)
+	var food_before := int(sim.stock.food)
+	var horn := false
+	var looted := false
+	for i in range(int(battle.RAID_FIRST) + 3000):
+		sim.step()
+		if not horn:
+			for event in sim.events:
+				if str(event.get("tone", "")) == "horn":
+					horn = true
+		if int(battle.raid_hits) > 0:
+			looted = true
+			break
+	expect(horn, "the horn sounds when the party sets out")
+	expect(looted, "an undefended door is plundered")
+	expect(int(sim.stock.gold) < gold_before and int(sim.stock.food) < food_before, "the raid costs the store gold and food")
+	expect(int(sim.stats.get("raids_suffered", 0)) == 1, "the loss is recorded once")
+	expect(sim.conservation_errors().is_empty(), "plunder balances the ledger: " + str(sim.conservation_errors()))
+	advance(sim, 5)
+	var still_raiding := 0
+	for unit in battle.units:
+		if bool(unit.get("raiding", false)):
+			still_raiding += 1
+	expect(not battle.raid_active and still_raiding == 0, "the party goes home once it has loaded up")
+	expect(int(battle.next_raid) > int(battle.tick), "the next raid is scheduled, not immediate")
+	# The camp's garrison is bigger for it: the raiders rejoin it.
+	expect(battle._alive("enemy").size() > 6, "returned raiders swell the garrison (%d)" % battle._alive("enemy").size())
+	# A save mid-siege comes back knowing about the raid it already announced.
+	var snapshot: Dictionary = sim.snapshot() if sim.has_method("snapshot") else {}
+	if not snapshot.is_empty():
+		var twin := Approved.new()
+		twin.setup()
+		expect(twin.restore(snapshot), "a game with raids in it restores")
+		expect(twin.battle != null and twin.battle.home == battle.home and int(twin.battle.raid_hits) == 1, "raid state survives a save")
 
 
 ## Gold used to be a countdown: fifty coins at the start and no producer, so the

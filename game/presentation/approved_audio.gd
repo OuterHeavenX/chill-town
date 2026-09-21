@@ -75,9 +75,16 @@ func set_enabled(on: bool, persist: bool = true) -> void:
 		save_enabled(on)
 
 
-## Fired by the game for notices the simulation tags as a chime.
+## Notices carry a tone; the simulation says what kind of moment it is and the
+## audio decides what that sounds like.
+func notice(tone: String) -> void:
+	match tone:
+		"chime": _play("chime", -12.0)
+		"horn": _play("horn", -6.0)
+
+
 func chime() -> void:
-	_play("chime", -12.0)
+	notice("chime")
 
 
 func click() -> void:
@@ -310,6 +317,7 @@ static func bank() -> Dictionary:
 			"complete": _wav(_notes_samples([[659.25, 0.0, 7.0], [987.77, 0.12, 7.0]], 0.6, 0.35)),
 			"fanfare": _wav(_notes_samples([[523.25, 0.0, 5.0], [659.25, 0.14, 5.0], [783.99, 0.28, 4.0], [1046.5, 0.42, 3.0]], 1.2, 0.35)),
 			"dirge": _wav(_notes_samples([[392.0, 0.0, 3.0], [311.13, 0.35, 3.0], [261.63, 0.7, 2.5]], 1.6, 0.35)),
+			"horn": _wav(_horn_samples()),
 		}
 	return _bank
 
@@ -499,6 +507,22 @@ static func _twang_samples() -> PackedFloat32Array:
 	for i in range(count):
 		var t := float(i) / RATE
 		out[i] = sin(TAU * 190.0 * t + 3.0 * sin(TAU * 190.0 * t)) * exp(-t * 22.0) * 0.6 + snap[i] * exp(-t * 500.0) * 0.5
+	return out
+
+
+## A watchman's horn: a brassy fifth that swells, holds, and falls away.
+static func _horn_samples() -> PackedFloat32Array:
+	var count := int(RATE * 1.5)
+	var out := PackedFloat32Array()
+	out.resize(count)
+	for i in range(count):
+		var t := float(i) / RATE
+		var envelope := minf(t / 0.18, 1.0) * (1.0 if t < 0.9 else maxf(0.0, 1.0 - (t - 0.9) / 0.6))
+		var brass := 0.0
+		for k in range(1, 7):
+			brass += sin(TAU * 196.0 * k * t + 0.4 * sin(TAU * 5.5 * t)) / float(k)
+			brass += 0.6 * sin(TAU * 293.66 * k * t) / float(k)
+		out[i] = brass * envelope * 0.22
 	return out
 
 

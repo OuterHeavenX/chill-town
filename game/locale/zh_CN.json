@@ -434,5 +434,11 @@
   "Fornos baixos transformam 1 tronco em 4 carvões. Disputa troncos com a serraria.": "矮窑把一根原木烧成四份木炭。与锯木厂争夺原木。",
   "Acampamento saqueado. A companhia traz {loot}.": "营地已洗劫。部队带回{loot}。",
   "Som: ligado": "声音：开",
-  "Som: desligado": "声音：关"
+  "Som: desligado": "声音：关",
+  "Formação na fila. Faltam casas para todos: a escola espera por moradia.": "已排入培训。房屋不够住：学校等待住房。",
+  "Sem moradia: construa casas": "没有住房：建造房屋",
+  "Saqueadores avistados! Uma tropa marcha do acampamento contra a vila.": "发现劫掠者！一支队伍正从营地向村庄进发。",
+  "Os saqueadores foram rechaçados.": "劫掠者已被击退。",
+  "Saqueadores chegaram ao prédio principal, mas não havia nada solto para levar.": "劫掠者抵达主楼，但没有可拿走的东西。",
+  "Saqueadores levaram {loot} do armazém.": "劫掠者从仓库带走了{loot}。"
 }

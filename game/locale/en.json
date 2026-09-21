@@ -559,5 +559,11 @@
   "Fornos baixos transformam 1 tronco em 4 carvões. Disputa troncos com a serraria.": "Low kilns turn one trunk into four charcoal. Competes with the sawmill for trunks.",
   "Acampamento saqueado. A companhia traz {loot}.": "Camp sacked. The company brings home {loot}.",
   "Som: ligado": "Sound: on",
-  "Som: desligado": "Sound: off"
+  "Som: desligado": "Sound: off",
+  "Formação na fila. Faltam casas para todos: a escola espera por moradia.": "Training queued. Not everyone has a roof yet: the school waits for housing.",
+  "Sem moradia: construa casas": "No housing: build houses",
+  "Saqueadores avistados! Uma tropa marcha do acampamento contra a vila.": "Raiders sighted! A war party is marching from the camp on the village.",
+  "Os saqueadores foram rechaçados.": "The raiders were driven off.",
+  "Saqueadores chegaram ao prédio principal, mas não havia nada solto para levar.": "Raiders reached the main building, but found nothing loose to take.",
+  "Saqueadores levaram {loot} do armazém.": "Raiders carried off {loot} from the store."
 }
