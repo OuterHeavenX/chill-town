@@ -302,6 +302,11 @@ var _report_body: VBoxContainer
 var _report_title: Label
 var _report_close: Button
 var _report_summary: Label
+var _report_mode := "buildings"
+var _report_tabs: Dictionary = {}
+var _resources_button: Button
+## Recipe seconds run at the fixed simulation pace; at 1× a player sees 2.5× as many.
+const PACE := 0.4
 var _report_button: Button
 var _report_signature := ""
 var _inspector: PanelContainer
@@ -990,6 +995,7 @@ func _make_menu() -> void:
 	_load_button = _button(content,tr("Carregar partida"),func(): load_requested.emit())
 	_lesson_button = _button(content,tr("Missões"),_show_missions)
 	_report_button = _button(content,tr("Construções da vila"),_show_report)
+	_resources_button = _button(content,tr("Recursos"),_show_report.bind("resources"))
 	_sound_button = _button(content,"",func(): sound_toggled.emit())
 	_refresh_sound_button()
 	_menu_help_button = _button(content,tr("Como jogar"),_show_help)
@@ -1061,6 +1067,11 @@ func _make_report() -> void:
 	_report_title = _label(titles,tr("Construções da vila"),24,WINE)
 	_report_summary = _label(titles,"",14,MUTED,true)
 	_report_close = _button(head,tr("Fechar"),close_panels,78)
+	var switch := _hbox(box,6)
+	for mode in ["buildings","resources"]:
+		var tab := _button(switch,tr("Construções") if mode == "buildings" else tr("Recursos"),_show_report.bind(mode))
+		tab.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+		_report_tabs[mode] = tab
 	_report_scroll = ScrollContainer.new()
 	_report_scroll.horizontal_scroll_mode = ScrollContainer.SCROLL_MODE_DISABLED
 	_report_scroll.size_flags_vertical = Control.SIZE_EXPAND_FILL
@@ -1068,8 +1079,15 @@ func _make_report() -> void:
 	_report_body = _vbox(_report_scroll,10)
 	_report_body.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 
-func _show_report() -> void:
+func _show_report(mode: String = "buildings") -> void:
 	close_panels()
+	_report_mode = mode
+	for key in _report_tabs:
+		var tab: Button = _report_tabs[key]
+		if key == mode: _accent(tab)
+		else:
+			tab.remove_theme_stylebox_override("normal")
+			tab.remove_theme_color_override("font_color")
 	_report_signature = ""
 	_fill_report()
 	_report.show()
@@ -1185,10 +1203,19 @@ func _fill_report() -> void:
 			signature += "%s:%d/%d;" % [kind,int(counts[kind].complete),int(counts[kind].working)]
 		else:
 			missing.append(str(kind))
+	signature = _report_mode+";"+signature
 	if signature == _report_signature:
 		return
 	_report_signature = signature
 	_clear_children(_report_body)
+	if _report_mode == "resources":
+		_report_title.text = tr("Recursos")
+		_report_summary.text = tr("O que cada recurso faz e quem o usa")
+		for item: String in _ordered_items():
+			_resource_row(item)
+		_label(_report_body,tr("Toque em um recurso na barra para ver o mesmo resumo."),13,MUTED,true)
+		return
+	_report_title.text = tr("Construções da vila")
 	_report_summary.text = tr("{kinds} tipos em pé · {total} construções no total").format({"kinds":standing.size(),"total":total})
 	if standing.is_empty():
 		_label(_report_body,tr("Nada construído ainda. Abra Construir para começar."),16,MUTED,true)
@@ -1220,6 +1247,9 @@ func _report_row(kind: String, count: Dictionary) -> void:
 	_label(heading,tally,15,SUCCESS if complete > 0 else MUTED)
 	var offer := _label(column,str(definition.get("description","")),14,MUTED,true)
 	offer.max_lines_visible = 5
+	var flow := _flow_text(_legend_of("building_legend",kind))
+	if not flow.is_empty():
+		_label(column,flow,13,WINE,true)
 	var footnote := _cost_text(_dictionary(definition.get("cost",{})))
 	var profession := str(definition.get("profession",""))
 	if not profession.is_empty():
@@ -1227,6 +1257,93 @@ func _report_row(kind: String, count: Dictionary) -> void:
 		footnote = worker if footnote.is_empty() else footnote+" · "+worker
 	if not footnote.is_empty():
 		_label(column,footnote,13,BRONZE,true)
+
+## Wares in the order the counters use, then everything else the game knows.
+func _ordered_items() -> Array[String]:
+	var items: Array[String] = []
+	var known: Array = _sim.get("ITEMS") if _sim != null and _sim.get("ITEMS") != null else ITEM_NAMES.keys()
+	for item in COUNTER_PRIORITY:
+		if item != "population" and known.has(item): items.append(item)
+	for item in known:
+		if not items.has(str(item)): items.append(str(item))
+	return items
+
+func _resource_row(item: String) -> void:
+	var card := _panel(_report_body,false,10)
+	var row := _hbox(card,10)
+	_glyph(row,item,34)
+	var column := _vbox(row,3)
+	column.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	var heading := _hbox(column,6)
+	var name_label := _label(heading,tr(str(ITEM_NAMES.get(item,item))),18)
+	name_label.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	_label(heading,str(_available(item)),15,SUCCESS if _available(item) > 0 else MUTED)
+	var phrases := _legend_phrases(_legend_of("item_legend",item))
+	_label(column,tr("Feito por: {list}").format({"list":phrases.made}),14,INK,true)
+	_label(column,tr("Usado por: {list}").format({"list":phrases.used}),14,MUTED,true)
+
+func _item_name(item: String) -> String:
+	return tr(str(ITEM_NAMES.get(item,item))).to_lower()
+
+func _building_name(kind: String) -> String:
+	return str(_definition(kind).get("name",kind))
+
+func _amounts(table: Dictionary) -> String:
+	var parts: Array[String] = []
+	for item in table:
+		parts.append("%d %s" % [int(table[item]),_item_name(str(item))])
+	return " + ".join(parts)
+
+## "Takes 2 ore + 1 charcoal · makes 1 iron every 30 s" from the sim's legend.
+func _flow_text(legend: Dictionary) -> String:
+	var takes: Dictionary = _dictionary(legend.get("takes",{}))
+	var makes: Dictionary = _dictionary(legend.get("makes",{}))
+	var seconds := float(legend.get("seconds",0.0))
+	if takes.is_empty() and makes.is_empty():
+		return ""
+	if not takes.is_empty() and not makes.is_empty() and seconds > 0.0:
+		return tr("Recebe {takes} · produz {makes} a cada {seconds} s").format({"takes":_amounts(takes),"makes":_amounts(makes),"seconds":roundi(seconds/PACE)})
+	if not makes.is_empty():
+		return tr("Produz {makes}").format({"makes":_amounts(makes)})
+	return tr("Recebe {takes}").format({"takes":_amounts(takes)})
+
+## Sentences for a ware: who makes it and from what, who uses it and for what.
+## Construction costs collapse to one range, or wood would list every building.
+func _legend_phrases(legend: Dictionary) -> Dictionary:
+	var made: Array[String] = []
+	for producer in legend.get("producers",[]):
+		var kind := str(producer.kind)
+		if kind == "raid":
+			made.append(tr("saque do acampamento inimigo"))
+			continue
+		var inputs: Dictionary = _dictionary(producer.get("inputs",{}))
+		if inputs.is_empty():
+			made.append(tr("{building} ({amount} cada)").format({"building":_building_name(kind),"amount":int(producer.amount)}))
+		else:
+			made.append(tr("{building} ({amount} de {inputs})").format({"building":_building_name(kind),"inputs":_amounts(inputs),"amount":int(producer.amount)}))
+	var used: Array[String] = []
+	var build_low := 0
+	var build_high := 0
+	for consumer in legend.get("consumers",[]):
+		var kind := str(consumer.kind)
+		var purpose := str(consumer.purpose)
+		var amount := int(consumer.amount)
+		match purpose:
+			"build":
+				build_low = amount if build_low == 0 else mini(build_low,amount)
+				build_high = maxi(build_high,amount)
+			"road": used.append(tr("estradas (1 por trecho)"))
+			"meal": used.append(tr("Taverna (refeições)"))
+			"train": used.append(tr("Escola (1 por morador novo)"))
+			"recruit": used.append(tr("Quartel (equipa um soldado)"))
+			"sell": used.append(tr("Mercado (vende por ouro)"))
+			_: used.append(tr("{building} ({amount} por {product})").format({"building":_building_name(kind),"amount":amount,"product":_item_name(purpose)}))
+	if build_high > 0:
+		used.append(tr("obras ({low}–{high} por construção)").format({"low":build_low,"high":build_high}))
+	return {
+		"made": ", ".join(made) if not made.is_empty() else tr("ninguém produz isto ainda"),
+		"used": ", ".join(used) if not used.is_empty() else tr("ninguém consome isto"),
+	}
 
 func _show_help() -> void:
 	close_panels()
@@ -1694,7 +1811,8 @@ func _resource_info(item: String) -> void:
 	else:
 		var stock := _dictionary(_sim.get("stock")) if _sim != null else {}
 		var reserved := int(stock.get(item,0))-_available(item)
-		show_message(tr("{item} no depósito principal: {stock} · livres: {free} · reservados: {reserved}. Cargas e produção nos prédios ficam fora deste total.").format({"item":tr(str(ITEM_NAMES.get(item,item))),"stock":int(stock.get(item,0)),"free":_available(item),"reserved":reserved}))
+		var phrases := _legend_phrases(_legend_of("item_legend",item))
+		show_message(tr("{item}: {stock} no depósito · {free} livres.").format({"item":tr(str(ITEM_NAMES.get(item,item))),"stock":int(stock.get(item,0)),"free":_available(item)})+"\n"+tr("Feito por: {list}").format({"list":phrases.made})+"\n"+tr("Usado por: {list}").format({"list":phrases.used}))
 
 func _available(item: String) -> int:
 	if _sim != null and _sim.has_method("available"):
@@ -1728,6 +1846,10 @@ func _find_building(id: int) -> Dictionary:
 
 func _call_dictionary(method: String) -> Dictionary:
 	return _dictionary(_call_value(method,{}))
+
+## The legend methods take the ware or building they describe.
+func _legend_of(method: String, key: String) -> Dictionary:
+	return _dictionary(_sim.call(method,key)) if _sim != null and _sim.has_method(method) else {}
 
 func _call_value(method: String, fallback: Variant) -> Variant:
 	return _sim.call(method) if _sim != null and _sim.has_method(method) else fallback

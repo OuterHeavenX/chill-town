@@ -1012,6 +1012,80 @@ func _chop_tree(w: Dictionary, hut: Dictionary) -> void:
 	_go(w, w.goal)
 
 
+## Where a ware comes from and where it goes, read off the same tables the
+## simulation runs on, so the legend cannot drift from the game. Producers are
+## [{kind, amount, seconds, inputs}] and consumers [{kind, amount, purpose}],
+## where purpose is a product item or one of: build, road, meal, train, recruit, sell.
+func item_legend(item: String) -> Dictionary:
+	var producers: Array[Dictionary] = []
+	var consumers: Array[Dictionary] = []
+	for kind: String in RECIPES:
+		var recipe: Array = RECIPES[kind]
+		if str(recipe[0]) == item:
+			producers.append({"kind": kind, "amount": int(recipe[1]), "seconds": float(recipe[2]), "inputs": (recipe[3] as Dictionary).duplicate()})
+		var inputs: Dictionary = recipe[3]
+		if inputs.has(item):
+			consumers.append({"kind": kind, "amount": int(inputs[item]), "purpose": str(recipe[0])})
+	match item:
+		"trunks":
+			producers.append({"kind": "lumber", "amount": 2, "seconds": 0.0, "inputs": {}})
+		"corn":
+			producers.append({"kind": "farm", "amount": 8, "seconds": float(RECIPES.farm[2]), "inputs": {}})
+		"bow":
+			var workshop: Array = RECIPES.workshop
+			producers.append({"kind": "workshop", "amount": 1, "seconds": float(workshop[2]), "inputs": (workshop[3] as Dictionary).duplicate()})
+		"gold":
+			for ware: String in MARKET_PRICES:
+				producers.append({"kind": "market", "amount": int(MARKET_PRICES[ware]), "seconds": MARKET_SECONDS, "inputs": {ware: 1}})
+	if RAID_LOOT.has(item):
+		producers.append({"kind": "raid", "amount": int(RAID_LOOT[item]), "seconds": 0.0, "inputs": {}})
+	for kind: String in definitions:
+		var cost: Dictionary = definitions[kind].get("cost", {})
+		if cost.has(item):
+			consumers.append({"kind": kind, "amount": int(cost[item]), "purpose": "build"})
+	if item == "stone":
+		consumers.append({"kind": "road", "amount": 1, "purpose": "road"})
+	if item in ["loaves", "food", "wine"]:
+		consumers.append({"kind": "inn", "amount": 1, "purpose": "meal"})
+	if item == "gold":
+		consumers.append({"kind": "training", "amount": 1, "purpose": "train"})
+	if item in ["axe", "sword", "bow"]:
+		consumers.append({"kind": "barracks", "amount": 1, "purpose": "recruit"})
+	if MARKET_PRICES.has(item):
+		consumers.append({"kind": "market", "amount": 1, "purpose": "sell"})
+	return {"item": item, "producers": producers, "consumers": consumers}
+
+
+## What a building takes in and puts out, for the report: {takes, makes, seconds}.
+func building_legend(kind: String) -> Dictionary:
+	var legend := {"kind": kind, "takes": {}, "makes": {}, "seconds": 0.0}
+	if RECIPES.has(kind):
+		var recipe: Array = RECIPES[kind]
+		legend.takes = (recipe[3] as Dictionary).duplicate()
+		legend.makes = {str(recipe[0]): int(recipe[1])}
+		legend.seconds = float(recipe[2])
+	match kind:
+		"lumber":
+			legend.makes = {"trunks": 2}
+		"farm":
+			legend.makes.corn = 8
+		"workshop":
+			legend.makes = {"axe": 1, "bow": 1}
+		"market":
+			for ware: String in MARKET_PRICES:
+				legend.takes[ware] = 1
+			legend.makes = {"gold": int(MARKET_PRICES.wine)}
+			legend.seconds = MARKET_SECONDS
+		"inn":
+			for ware in ["loaves", "food", "wine"]:
+				legend.takes[ware] = 1
+		"training":
+			legend.takes = {"gold": 1}
+		"barracks":
+			legend.takes = {"axe": 1, "sword": 1, "bow": 1}
+	return legend
+
+
 ## Everything a mission objective is allowed to look at. One snapshot per query
 ## keeps the loader free of any knowledge of how the simulation stores its state.
 func mission_state() -> Dictionary:

@@ -63,6 +63,7 @@ func run() -> void:
 	_test_army_equipment()
 	_test_raid_camp_and_loot()
 	_test_housing_gates_growth()
+	_test_legend_reads_the_tables()
 	_test_raiders_come_for_the_village()
 	_test_mission_lock()
 	print("KAM_GAPS_RESULT checks=", checks, " failures=", failures)
@@ -373,6 +374,43 @@ func _test_raid_camp_and_loot() -> void:
 	for i in range(400):
 		sim.step()
 	expect(int(sim.stock.gold) == gold_after, "a camp already taken pays nothing more")
+
+
+## The legend is computed from the tables the game runs on, never written by
+## hand, so a new recipe shows up in it without anyone remembering to add it.
+func _test_legend_reads_the_tables() -> void:
+	var sim := Approved.new()
+	sim.setup()
+	var charcoal: Dictionary = sim.item_legend("charcoal")
+	var makers: Array = charcoal.producers.map(func(p): return p.kind)
+	var users: Array = charcoal.consumers.map(func(c): return c.kind)
+	expect(makers == ["kiln"], "charcoal is made by the kiln alone: " + str(makers))
+	expect(charcoal.producers[0].inputs == {"trunks": 1} and int(charcoal.producers[0].amount) == 4, "the kiln entry carries its recipe (1 trunk → 4)")
+	expect(users.has("foundry") and users.has("forge"), "charcoal is used by the foundry and the forge: " + str(users))
+	for user in charcoal.consumers:
+		if user.kind == "foundry":
+			expect(int(user.amount) == 1 and str(user.purpose) == "iron", "the foundry entry says 1 per iron")
+	var gold: Dictionary = sim.item_legend("gold")
+	var gold_from: Array = gold.producers.map(func(p): return p.kind)
+	var gold_to: Array = gold.consumers.map(func(c): return c.kind)
+	expect(gold_from.has("market") and gold_from.has("raid"), "gold comes from the market and from raids: " + str(gold_from))
+	expect(gold_to.has("training"), "gold is spent by the school: " + str(gold_to))
+	var stone: Dictionary = sim.item_legend("stone")
+	var stone_to: Array = stone.consumers.map(func(c): return str(c.purpose))
+	expect(stone_to.has("build") and stone_to.has("road"), "stone goes into buildings and roads: " + str(stone_to))
+	var sword: Dictionary = sim.item_legend("sword")
+	expect(sword.producers.size() == 1 and sword.producers[0].kind == "forge", "swords come from the forge")
+	expect(sword.consumers.size() == 1 and sword.consumers[0].kind == "barracks" and str(sword.consumers[0].purpose) == "recruit", "swords go to the barracks")
+	var bow: Dictionary = sim.item_legend("bow")
+	expect(bow.producers.size() == 1 and bow.producers[0].kind == "workshop" and bow.producers[0].inputs == {"wood": 2}, "bows come from the workshop, which alternates them with axes")
+	for item: String in sim.ITEMS:
+		var legend: Dictionary = sim.item_legend(item)
+		expect(not legend.producers.is_empty() or not legend.consumers.is_empty(), "every ware has a place in the legend: " + item)
+	var foundry: Dictionary = sim.building_legend("foundry")
+	expect(foundry.takes == {"ore": 2, "charcoal": 1} and foundry.makes == {"iron": 1} and foundry.seconds == 12.0, "the foundry legend matches its recipe: " + str(foundry))
+	var farm: Dictionary = sim.building_legend("farm")
+	expect(int(farm.makes.get("food", 0)) == 8 and int(farm.makes.get("corn", 0)) == 8, "the farm legend shows both food and corn")
+	expect(sim.building_legend("hall").takes.is_empty() and sim.building_legend("hall").makes.is_empty(), "a building with no recipe has an empty legend, not a wrong one")
 
 
 ## Houses used to be decoration: the cap was a label nothing read. The school now

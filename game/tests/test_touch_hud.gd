@@ -318,6 +318,33 @@ func run()->void:
 	for child in world.get_children():
 		if child is CPUParticles3D and child.name=="Dust":dust_after+=1
 	expect(dust_after==dust_before+1,"finishing a building kicks up dust (%d -> %d)"%[dust_before,dust_after])
+	# --- The legend: what every ware is for, in the report and on a counter tap.
+	hud._show_report("resources");await frames(4)
+	expect(hud._report.visible and hud._report_mode=="resources","the report opens on its resources page")
+	var ware_rows:=0
+	var charcoal_text:=""
+	for child in hud._report_body.get_children():
+		if child is PanelContainer:
+			ware_rows+=1
+			var texts:=""
+			for node in child.find_children("*","Label",true,false):texts+=(node as Label).text+" | "
+			if texts.contains("Charcoal"):charcoal_text=texts
+	expect(ware_rows==game.sim.ITEMS.size(),"one card per ware (%d of %d)"%[ware_rows,game.sim.ITEMS.size()])
+	expect(charcoal_text.contains("Charcoal burner") and charcoal_text.contains("4 from 1 trunks"),"charcoal says where it comes from: "+charcoal_text)
+	expect(charcoal_text.contains("Foundry") and charcoal_text.contains("Weapon forge") and charcoal_text.contains("per iron"),"and who burns it: "+charcoal_text)
+	expect(hud._report.get_combined_minimum_size().x<=hud._report.size.x+0.5,"the resources page fits the phone width")
+	hud._show_report("buildings");await frames(4)
+	var foundry_text:=""
+	for child in hud._report_body.get_children():
+		if child is PanelContainer:
+			var texts:=""
+			for node in child.find_children("*","Label",true,false):texts+=(node as Label).text+" | "
+			if texts.contains("Foundry"):foundry_text=texts
+	expect(foundry_text.contains("Takes 2 ore + 1 charcoal") and foundry_text.contains("makes 1 iron every 30 s"),"a building card shows its flow at 1x: "+foundry_text)
+	hud.close_panels();await frames(2)
+	hud._resource_info("charcoal");await frames(2)
+	expect(hud._toast.visible and hud._toast_label.text.contains("Made by: Charcoal burner") and hud._toast_label.text.contains("Used by:"),"tapping a counter explains the ware: "+hud._toast_label.text)
+	hud._toast.hide()
 	# --- Wind: the shared tree material sways, and only what is green and high.
 	var EnvModels=preload("res://presentation/approved_environment.gd")
 	var oak:Node3D=EnvModels.tree(1)

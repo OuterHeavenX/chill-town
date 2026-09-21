@@ -81,8 +81,12 @@ buildings, train professions, and expand the economy.
 - Menu → **Missions** lists four lessons. Each unlocks one more production chain and
   locks the ones it has not taught yet; the free village has everything from the start.
 - The **Buildings** report lists every structure, how many you have standing or under
-  way, what each one produces, its cost and the worker it needs. It sits in the dock on
-  wide screens and under Menu → Village buildings everywhere else.
+  way, what each one takes in and makes ("Takes 2 ore + 1 charcoal · makes 1 iron every
+  30 s"), its cost and the worker it needs. Its **Resources** page is the legend: for every
+  ware, who makes it from what and who uses it for what — charcoal comes from the
+  charcoal burner and goes to the foundry and the forge. Tapping a resource in the top
+  bar gives the same two lines. All of it is read off the recipe tables the game runs on,
+  so it cannot go stale.
 - Manual saves and autosaves are local to each browser and device.
 
 ## Develop
@@ -141,6 +145,10 @@ in the code are Portuguese keys translated through `game/locale/en.json`.
   cells are highlighted while the quarry tool is active (it was invisible before).
 - Woodcutters pick the nearest tree they can actually stand beside. They used to take the
   closest trunk and stall for good when it was walled in by the middle of a grove.
+- Added a legend. The Buildings report gained a Resources page and every building card a
+  "takes → makes" line, and tapping a counter explains the ware. It is computed from the
+  simulation's own recipe, cost and kit tables rather than written by hand, and a test
+  holds every ware to having a place in it.
 - Added a day–night cycle and the small things that make a place feel worked:
   chimney smoke tied to who is actually at work, firelight at every hearth and
   forge mouth, lanterns that answer the dark, self-lit embers, lit windows at
