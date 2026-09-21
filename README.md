@@ -57,6 +57,11 @@ buildings, train professions, and expand the economy.
 - Woodcutters harvest the nearest tree they can reach; the sawmill turns trunks into timber; quarries need a stone deposit.
 - Grain goes through mill and bakery to loaves; workers eat at the inn.
 - Barracks take recruits plus a weapon. Army mode sets a company objective.
+- The day turns. A village day lasts about seven minutes at normal speed; the light
+  arcs from a cold morning through a brief amber dusk into a blue moonlit night,
+  when the windows come alight and lanterns burn at the main building, the inn
+  and the market. Chimneys smoke while someone is working inside, hearths and
+  forge mouths throw real firelight, and a finished building kicks up dust.
 - Houses are what let the village grow. The school makes nobody the village cannot
   house: seventeen start with room for four more, and each finished house shelters
   four. A queue that has outgrown the roofs waits and says so.
@@ -136,6 +141,12 @@ in the code are Portuguese keys translated through `game/locale/en.json`.
   cells are highlighted while the quarry tool is active (it was invisible before).
 - Woodcutters pick the nearest tree they can actually stand beside. They used to take the
   closest trunk and stall for good when it was walled in by the middle of a grove.
+- Added a day–night cycle and the small things that make a place feel worked:
+  chimney smoke tied to who is actually at work, firelight at every hearth and
+  forge mouth, lanterns that answer the dark, self-lit embers, lit windows at
+  night, and a dust burst when a building finishes. All of it runs on the
+  Compatibility renderer the web build uses — CPU particles, a few omni lights and
+  additive billboards, no post-processing — so phones are not asked for more.
 - Gave the game a gothic cast: a cold overcast light, a slate sky, heavier mist,
   darker moorland ground and river, and a charcoal-and-burgundy interface with aged
   gold. The buildings keep their terracotta and teal, so the village reads as warm

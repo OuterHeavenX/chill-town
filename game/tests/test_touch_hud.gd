@@ -274,6 +274,50 @@ func run()->void:
 		expect(not hud._definition(kind).is_empty(),"the "+kind+" has a definition to show")
 	expect(tr("Carvoaria")=="Charcoal burner" and tr("Fundição")=="Foundry","the iron buildings read as English")
 	expect(tr("Ferreiro")=="Blacksmith" and tr("Espada")=="Sword","the smith and the sword read as English")
+	# --- Juice: chimneys and hearths on the models, the sun as a clock, dust.
+	var Prim=preload("res://presentation/approved_primitives.gd")
+	var Civil=preload("res://presentation/approved_civil_buildings.gd")
+	expect(Prim.MATERIAL_KEYS.has("ember") and Prim._material("ember").emission_enabled,"embers are a self-lit material")
+	var kiln_model:Node3D=Civil.building("kiln")
+	expect(kiln_model.get_meta("chimneys",[]).size()>=1 and kiln_model.get_meta("fires",[]).size()==2,"the kiln reports its chimney and both fire mouths")
+	kiln_model.free()
+	var world=game.world
+	world.elapsed=0.0;world.sync(0.0)
+	var day_energy:float=world.sun.light_energy
+	var day_glow:float=Prim._material("glass").emission_energy_multiplier
+	expect(world.night<0.05,"the game opens in daylight (night %.2f)"%world.night)
+	world.elapsed=(0.82-world.DAY_START)*world.DAY_SECONDS;world.sync(0.0)
+	expect(world.night>0.9,"the middle of the night is night (%.2f)"%world.night)
+	expect(world.sun.light_energy<day_energy*0.5,"the moon is far dimmer than the sun (%.2f vs %.2f)"%[world.sun.light_energy,day_energy])
+	expect(Prim._material("glass").emission_energy_multiplier>day_glow*10.0,"windows glow at night")
+	var hall_node:Node3D=world.buildings[game.sim.buildings[0].id]
+	var lantern:OmniLight3D=hall_node.get_node_or_null("Lantern")
+	expect(lantern!=null and lantern.light_energy>0.5,"the hall lantern burns at night")
+	world.elapsed=0.0;world.sync(0.0)
+	expect(lantern!=null and lantern.light_energy<0.05,"and is out by day")
+	var forge:Dictionary=game.sim._add_building("forge",Vector2i(16,18),true)
+	var smith:Dictionary=game.sim._add_worker("blacksmith",Vector2i(16,20))
+	forge.worker=smith.id;smith.state="Produzindo espada"
+	world.sync(0.05);await frames(2)
+	var forge_node:Node3D=world.buildings[forge.id]
+	var smoke:CPUParticles3D=forge_node.get_node_or_null("Smoke")
+	var fire:OmniLight3D=forge_node.get_node_or_null("Fire")
+	expect(smoke!=null and smoke.emitting,"a working forge smokes")
+	expect(fire!=null and fire.light_energy>0.5,"and its hearth throws light")
+	smith.state="Disponível";world.sync(0.05)
+	expect(smoke!=null and not smoke.emitting and fire!=null and fire.light_energy==0.0,"an idle forge goes cold")
+	var site:Dictionary=game.sim._add_building("house",Vector2i(18,18),false)
+	site.stage="building";site.progress=0.5
+	world.sync(0.05)
+	var dust_before:=0
+	for child in world.get_children():
+		if child is CPUParticles3D and child.name=="Dust":dust_before+=1
+	site.stage="complete";site.progress=1.0
+	world.sync(0.05)
+	var dust_after:=0
+	for child in world.get_children():
+		if child is CPUParticles3D and child.name=="Dust":dust_after+=1
+	expect(dust_after==dust_before+1,"finishing a building kicks up dust (%d -> %d)"%[dust_before,dust_after])
 	# --- Desktop width returns to the full layout.
 	root.size=Vector2i(1280,800);await frames(4)
 	expect(hud._help_dock_button.visible and hud._resource_buttons.population.visible,"desktop layout restores every control")

@@ -16,7 +16,8 @@ const TEAL := Color("176567")
 const GOLD := Color("bd9346")
 const DARK := Color("353c32")
 const LEAF := Color("677b30")
-const MATERIAL_KEYS := ["stone","plaster","wood","roof","cloth","glass","foliage","metal"]
+## "ember" is self-lit: fire mouths and molten metal stay orange in any light.
+const MATERIAL_KEYS := ["stone","plaster","wood","roof","cloth","glass","foliage","metal","ember"]
 
 static var _materials: Dictionary = {}
 static var _primitives: Dictionary = {}
@@ -37,6 +38,10 @@ class Batch extends RefCounted:
 	var tile_colors: Array[Color] = []
 	var rng := RandomNumberGenerator.new()
 	var parts := 0
+	## Where smoke rises from and where fire burns, in model space, so the world
+	## can hang effects on a finished building without knowing its shape.
+	var chimneys: Array[Vector3] = []
+	var fires: Array[Vector3] = []
 
 	func _init(seed_value: int = 1) -> void:
 		rng.seed = seed_value
@@ -124,7 +129,7 @@ class Batch extends RefCounted:
 			for i in range(tiles.size()):
 				roof.set_instance_transform(i,tiles[i])
 				roof.set_instance_color(i,tile_colors[i])
-		return {"mesh":mesh,"tiles":roof,"vertices":vertex_count,"parts":parts,"tile_count":tiles.size(),"draw_calls":mesh.get_surface_count()+(1 if roof != null else 0)}
+		return {"mesh":mesh,"tiles":roof,"vertices":vertex_count,"parts":parts,"tile_count":tiles.size(),"draw_calls":mesh.get_surface_count()+(1 if roof != null else 0),"chimneys":chimneys.duplicate(),"fires":fires.duplicate()}
 
 static func building(kind: String) -> Node3D:
 	return Legacy.building(kind)
@@ -165,6 +170,8 @@ static func _instantiate(asset: Dictionary, node_name: String) -> Node3D:
 	root.set_meta("vertices",asset.vertices)
 	root.set_meta("front",Vector3.FORWARD*-1)
 	root.set_meta("footprint_m",Vector2(4.7,4.7))
+	root.set_meta("chimneys",asset.get("chimneys",[]))
+	root.set_meta("fires",asset.get("fires",[]))
 	return root
 
 static func _material(key: String) -> StandardMaterial3D:
@@ -205,6 +212,11 @@ static func _material(key: String) -> StandardMaterial3D:
 		material.emission_energy_multiplier = 0.025
 	elif key == "cloth":
 		material.roughness = 1.0
+	elif key == "ember":
+		material.shading_mode = BaseMaterial3D.SHADING_MODE_UNSHADED
+		material.emission_enabled = true
+		material.emission = Color("ff8a3a")
+		material.emission_energy_multiplier = 1.6
 	_materials[key] = material
 	return material
 

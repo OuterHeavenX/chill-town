@@ -233,6 +233,7 @@ static func _hipped_roof(b, at: Vector3, width: float, depth: float, rise: float
 	Base._cylinder(b,at+Vector3.UP*(rise+0.09),0.075,0.25,GOLD,"metal")
 
 static func _chimney(b, at: Vector3, height: float, width: float = 0.64) -> void:
+	b.chimneys.append(at+Vector3.UP*(height+0.30))
 	_masonry(b,at,width,width,height)
 	_box(b,at+Vector3.UP*(height+0.12),Vector3(width+0.13,0.15,width+0.13),TRIM,"stone")
 	_box(b,at+Vector3.UP*(height+0.21),Vector3(width-0.14,0.04,width-0.14),DARK,"stone")

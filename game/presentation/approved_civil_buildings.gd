@@ -366,7 +366,8 @@ static func _kiln(b) -> void:
 		# The mouth stands proud of the dome, or the fire is never seen.
 		_box(b,Vector3(x,0.46,0.18),Vector3(0.40,0.52,0.30),COAL,"stone")
 		Core._arch_frame(b,Vector3(x,0.50,0.34),0.46,0.58,0.09)
-		_box(b,Vector3(x,0.42,0.36),Vector3(0.28,0.36,0.05),EMBER,"cloth")
+		_box(b,Vector3(x,0.42,0.36),Vector3(0.28,0.36,0.05),EMBER,"ember")
+		b.fires.append(Vector3(x,0.46,0.42))
 	# Charcoal heaps, the log pile it is made from, and the cart that hauls it.
 	for i in range(14):
 		Base._ellipsoid(b,Vector3(b.rng.randf_range(-1.70,-0.20),0.20+b.rng.randf_range(0.0,0.16),b.rng.randf_range(1.06,1.80)),Vector3(0.20,0.16,0.19),b.shade(COAL,0.18),"stone",true)
@@ -435,13 +436,14 @@ static func _foundry(b) -> void:
 	_box(b,Vector3(1.44,4.62,-1.18),Vector3(0.62,0.22,0.62),b.shade(STONE,0.10),"stone")
 	# The furnace mouth, glowing, with the pour trough in front of it.
 	_box(b,Vector3(0.34,0.76,0.60),Vector3(1.06,1.40,0.18),COAL,"stone")
-	_box(b,Vector3(0.34,0.60,0.68),Vector3(0.74,0.84,0.05),EMBER,"cloth")
+	_box(b,Vector3(0.34,0.60,0.68),Vector3(0.74,0.84,0.05),EMBER,"ember")
+	b.fires.append(Vector3(0.34,0.66,0.76))
 	Core._arch_frame(b,Vector3(0.34,0.82,0.72),1.24,1.62,0.18)
 	# The pour trough: a stone channel with the metal running in its throat, not
 	# a sheet of light lying on the yard.
 	_box(b,Vector3(0.34,0.34,1.30),Vector3(0.80,0.36,0.58),b.shade(STONE,0.10),"stone")
 	_box(b,Vector3(0.34,0.46,1.30),Vector3(0.46,0.16,0.26),COAL,"stone")
-	_box(b,Vector3(0.34,0.50,1.30),Vector3(0.38,0.08,0.20),EMBER,"cloth")
+	_box(b,Vector3(0.34,0.50,1.30),Vector3(0.38,0.08,0.20),EMBER,"ember")
 	Core._banner(b,Vector3(1.02,3.02,-0.08),0.46,0.80)
 	# The water wheel on the cold flank.
 	_wheel(b,Vector3(-1.78,0.96,0.42),0.84,PI*0.5)
@@ -474,7 +476,8 @@ static func _forge(b) -> void:
 	_awning(b,Vector3(-1.06,2.06,0.30),1.30,1.04,0.24,PI*0.5,true)
 	# The forge hearth, lit, with the anvil on its block in front.
 	_box(b,Vector3(1.04,0.66,0.40),Vector3(0.72,1.10,0.16),COAL,"stone")
-	_box(b,Vector3(1.04,0.52,0.48),Vector3(0.48,0.60,0.05),EMBER,"cloth")
+	_box(b,Vector3(1.04,0.52,0.48),Vector3(0.48,0.60,0.05),EMBER,"ember")
+	b.fires.append(Vector3(1.04,0.56,0.56))
 	Core._arch_frame(b,Vector3(1.04,0.70,0.52),0.86,1.30,0.14)
 	Base._cylinder(b,Vector3(-0.86,0.36,0.62),0.26,0.40,DARK_WOOD)
 	_box(b,Vector3(-0.86,0.66,0.62),Vector3(0.66,0.20,0.30),b.shade(DARK,0.06),"metal")

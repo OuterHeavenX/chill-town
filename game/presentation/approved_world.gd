@@ -7,6 +7,13 @@ const Basic = preload("res://presentation/model_factory.gd")
 const Materials=preload("res://presentation/approved_materials.gd")
 const CropGrowth=preload("res://presentation/approved_crop_growth.gd")
 const EnvModels=preload("res://presentation/approved_environment.gd")
+const Effects=preload("res://presentation/approved_effects.gd")
+const Civil=preload("res://presentation/approved_civil_buildings.gd")
+const Prim=preload("res://presentation/approved_primitives.gd")
+## A village day in seconds of village time; the night is the shorter part.
+const DAY_SECONDS := 420.0
+const NIGHT_SHARE := 0.36
+const DAY_START := 0.24
 const CELL := 2.5
 var sim: RefCounted
 var camera: Camera3D
@@ -36,6 +43,11 @@ var terrain_elapsed := 0.0
 var elapsed := 0.0
 var performance_elapsed := 0.0
 var detail_cursor:=0
+var sun: DirectionalLight3D
+var sky: Environment
+var day_phase := DAY_START
+## 0 in full day, 1 in deep night; lanterns and windows follow it.
+var night := 0.0
 
 func setup(village: RefCounted) -> void:
  sim = village
@@ -57,9 +69,9 @@ func _light() -> void:
  # An overcast, cold light: a pale sun low in a slate sky, deep shadow, and mist
  # that swallows the far bank. The buildings keep their terracotta and teal, so
  # the village reads as warm life under a grim sky rather than a grey smear.
- var sun := DirectionalLight3D.new();sun.rotation_degrees = Vector3(-42,-38,0);sun.light_color = Color("d6dae4");sun.light_energy = 0.74 if RenderingServer.get_current_rendering_method()=="gl_compatibility" else 0.92;sun.shadow_enabled = true
+ sun = DirectionalLight3D.new();sun.rotation_degrees = Vector3(-42,-38,0);sun.light_color = Color("d6dae4");sun.light_energy = 0.74 if RenderingServer.get_current_rendering_method()=="gl_compatibility" else 0.92;sun.shadow_enabled = true
  sun.directional_shadow_mode = DirectionalLight3D.SHADOW_ORTHOGONAL;sun.directional_shadow_max_distance = 150;sun.shadow_bias = 0.035;sun.shadow_normal_bias = 0.22;sun.directional_shadow_blend_splits = false;sun.light_angular_distance = 0.0;sun.shadow_blur=1.0;add_child(sun)
- var environment := WorldEnvironment.new();var env := Environment.new();environment.environment = env
+ var environment := WorldEnvironment.new();var env := Environment.new();environment.environment = env;sky = env
  env.background_mode = Environment.BG_COLOR;env.background_color = Color("262a33")
  env.ambient_light_source = Environment.AMBIENT_SOURCE_COLOR;env.ambient_light_color = Color("5f6779");env.ambient_light_energy = 0.52
  env.tonemap_mode = Environment.TONE_MAPPER_FILMIC
@@ -121,6 +133,7 @@ func sync(delta: float) -> void:
  _camera_update(delta)
  _refresh_deposit_visibility()
  elapsed += delta*visual_speed if not sim.paused else 0.0
+ _daylight()
  terrain_elapsed += delta
  if terrain_elapsed>=0.2:
   terrain_elapsed = 0.0;terrain.sync()
@@ -134,16 +147,20 @@ func sync(delta: float) -> void:
   var phase := 3 if stage=="complete" else (int(float(b.progress)*3.0) if stage=="building" else -1)
   var signature: String = b.kind+str(phase)
   if not buildings.has(b.id) or buildings[b.id].get_meta("signature")!=signature:
+   var finished_now: bool = buildings.has(b.id) and stage=="complete"
    if buildings.has(b.id):buildings[b.id].free()
    var node: Node3D = Models.building(b.kind) if stage=="complete" else _construction(phase,b)
    if stage=="complete" and b.kind=="farm":CropGrowth.install(node)
-   if stage=="complete":Materials.apply(node)
+   if stage=="complete":Materials.apply(node);_decorate(node,b)
    _add_clearing(node,b.kind)
    node.position = _building_center(b.cell,b.kind);node.set_meta("signature",signature);add_child(node);buildings[b.id]=node
+   if finished_now:Effects.dust(self,node.position)
    var body := StaticBody3D.new();body.collision_layer=2;body.collision_mask=0;body.set_meta("building_id",b.id);node.add_child(body)
    var collision := CollisionShape3D.new();var box := BoxShape3D.new();box.size=Vector3(sim.footprint_size(b.kind).x*CELL-0.15,6.4 if b.kind!="hall" else 8.5,sim.footprint_size(b.kind).y*CELL-0.15);collision.shape=box;collision.position.y=box.size.y*0.5;body.add_child(collision)
   if stage!="complete":_update_supplies(buildings[b.id],b)
-  elif b.kind=="farm":CropGrowth.sync(buildings[b.id],sim.crop_status(b),delta)
+  else:
+   if b.kind=="farm":CropGrowth.sync(buildings[b.id],sim.crop_status(b),delta)
+   _animate_effects(buildings[b.id],b)
  for id in buildings.keys():
   if not alive.has(id):buildings[id].free();buildings.erase(id)
  alive.clear()
@@ -427,6 +444,65 @@ func _update_supplies(building:Node3D,state:Dictionary)->void:
   var rock:=Basic.cylinder(piles,0.16,0.18,Vector3(half-0.56+(i%2)*0.25,0.29+(i/4)*0.17,half-0.45+((i/2)%2)*0.23),Color("929181").darkened((i%3)*0.04),0.12,6)
   rock.rotation.y=i*1.73
  Basic.bake(piles)
+
+## Hang smoke on every chimney the model reported, firelight on every hearth,
+## and a lantern by the door of the buildings that keep one burning.
+func _decorate(node:Node3D,b:Dictionary)->void:
+ for at:Vector3 in node.get_meta("chimneys",[]):Effects.smoke(node,at)
+ for at:Vector3 in node.get_meta("fires",[]):Effects.fire(node,at)
+ if b.kind in ["hall","inn","market"]:
+  var door:Vector2i=b.entrance
+  var local:=Vector3(door.x*CELL,0,door.y*CELL)-_building_center(b.cell,b.kind)
+  Effects.lantern(node,local+Vector3(0.9,1.9,0.4))
+
+## Smoke only while someone works inside (the hall and inn keep a hearth going),
+## fire that breathes, lanterns that answer the night.
+func _animate_effects(node:Node3D,b:Dictionary)->void:
+ var hearth:bool=b.kind in ["hall","inn"]
+ var working:bool=hearth
+ if not hearth and int(b.worker)>=0:
+  var w:Dictionary=sim._worker(int(b.worker))
+  working=not w.is_empty() and _state_is_working(str(w.state))
+ var flicker:float=0.86+0.14*sin(elapsed*13.0+float(b.id)*2.1)+0.06*sin(elapsed*29.0+float(b.id))
+ for child in node.get_children():
+  if child is CPUParticles3D and child.name=="Smoke":
+   if child.emitting!=working:child.emitting=working
+  elif child is OmniLight3D and child.name=="Fire":
+   child.light_energy=(1.4*flicker if working else 0.0)
+   var halo:Node3D=child.get_node_or_null("Halo")
+   if halo!=null:halo.visible=working
+  elif child is OmniLight3D and child.name=="Lantern":
+   child.light_energy=1.9*night*(0.92+0.08*sin(elapsed*7.0+float(b.id)))
+   var halo:Node3D=child.get_node_or_null("Halo")
+   if halo!=null:halo.visible=night>0.05
+
+## The sun as a clock. Day is a rising and falling arc; night is a blue moon
+## high in the sky, dim enough to keep the village legible. Windows and
+## lanterns come up as the light goes down.
+func _daylight()->void:
+ if sun==null or sky==null:return
+ day_phase=fposmod(DAY_START+elapsed/DAY_SECONDS,1.0)
+ var day_share:=1.0-NIGHT_SHARE
+ var s:float
+ if day_phase<day_share:s=sin(day_phase/day_share*PI)
+ else:s=-sin((day_phase-day_share)/NIGHT_SHARE*PI)
+ night=1.0-smoothstep(-0.30,0.10,s)
+ var dusk:float=clampf(1.0-absf(s)/0.28,0.0,1.0)*(1.0-night)
+ var elevation:float=lerpf(14.0,58.0,sqrt(maxf(s,0.0)))
+ if night>0.5:elevation=36.0
+ sun.rotation_degrees=Vector3(-elevation,-38,0)
+ var day_colour:=Color("d6dae4").lerp(Color("e6b58c"),dusk*0.7)
+ sun.light_color=day_colour.lerp(Color("7f8bc2"),night)
+ var day_energy:float=0.74 if RenderingServer.get_current_rendering_method()=="gl_compatibility" else 0.92
+ sun.light_energy=lerpf(day_energy*lerpf(1.0,0.72,dusk),0.34,night)
+ sky.ambient_light_color=Color("5f6779").lerp(Color("3d4460"),night)
+ sky.ambient_light_energy=lerpf(0.52,0.66,night)
+ sky.background_color=Color("262a33").lerp(Color("0b0d14"),night)
+ sky.fog_light_color=Color("646c7a").lerp(Color("1d2230"),night)
+ sky.fog_density=lerpf(0.0011,0.0016,night)
+ var glow:float=lerpf(0.025,3.2,night)
+ for material in [Prim._material("glass"),Civil._materials.get("glass")]:
+  if material is StandardMaterial3D:material.emission_energy_multiplier=glow
 
 func _add_clearing(node:Node3D,kind:String)->void:
  var ground:=MeshInstance3D.new();var plane:=PlaneMesh.new()
