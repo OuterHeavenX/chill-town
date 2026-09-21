@@ -32,8 +32,7 @@ def prepare(page: Path, assets_project: Path | None = None) -> None:
     assets = {
         "CSS":source / "web-shell/approved.css",
         "JS":source / "web-shell/approved.js",
-        "HALL":project / "assets/approved/previews/hall.png",
-        "SERVANT":project / "assets/approved/people-previews/servant.png",
+        "SPLASH":project / "assets/approved/previews/splash.webp",
     }
     data = {key:path.read_bytes() for key,path in assets.items()}
     template = (source / "web-shell/approved.html").read_text(encoding="utf-8")

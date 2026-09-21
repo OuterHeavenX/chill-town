@@ -161,6 +161,10 @@ in the code are Portuguese keys translated through `game/locale/en.json`.
   darker moorland ground and river, and a charcoal-and-burgundy interface with aged
   gold. The buildings keep their terracotta and teal, so the village reads as warm
   life under a grim sky. The loading screen is dark to match.
+- Gave the loading screen a picture of the game: a built-out village at dusk,
+  windows lit and chimneys smoking, photographed inside the engine by
+  `game/tests/render_splash.gd` rather than painted. Re-run that script under a
+  display (`xvfb-run` is enough) whenever the buildings or the light change.
 - Made houses matter. The population cap was a label nothing read; the school now
   stops at the roof and says why.
 - Let the camp raid back, so a company has something to defend against. The

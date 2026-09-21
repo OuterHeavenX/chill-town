@@ -32,7 +32,16 @@ Check what the player sees when inputs, workers or access are missing.
 
 The in-game interface is in `game/ui/approved_hud.gd`. The browser loading screen
 is in `tools/web-shell/`. Run `export-web` after editing the loading screen; it
-is embedded into the exported HTML by `tools/prepare_web.py`.
+is embedded into the exported HTML by `tools/prepare_web.py`. Its background,
+`game/assets/approved/previews/splash.webp`, is a photograph of a built-out village
+taken inside the engine by `game/tests/render_splash.gd`:
+
+```bash
+xvfb-run -a <godot> --path game --rendering-driver opengl3 --script res://tests/render_splash.gd
+```
+
+Edit the `TOWN` list in that script to change what the picture shows, or `KEEP`
+to pick another hour of the day.
 
 ## Localization / 本地化
 
