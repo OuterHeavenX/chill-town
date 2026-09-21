@@ -11,6 +11,8 @@ signal focus_requested(cell: Vector2i)
 signal entrance_highlighted(cell: Vector2i)
 signal language_changed
 signal camera_requested(kind: String)
+signal ui_pressed
+signal sound_toggled
 
 const MissionSpec := preload("res://simulation/mission_spec.gd")
 
@@ -342,6 +344,8 @@ var _load_button: Button
 var _lesson_button: Button
 var _menu_help_button: Button
 var _code_button: Button
+var _sound_button: Button
+var _sound_enabled := true
 var _restart_button: Button
 var _restart_prompt: Label
 var _restart_yes: Button
@@ -487,6 +491,7 @@ func _button(parent: Node, text: String, action: Callable, min_width: float = 0)
 		if button.dragged:
 			button.dragged = false
 			return
+		ui_pressed.emit()
 		action.call())
 	parent.add_child(button)
 	return button
@@ -985,6 +990,8 @@ func _make_menu() -> void:
 	_load_button = _button(content,tr("Carregar partida"),func(): load_requested.emit())
 	_lesson_button = _button(content,tr("Missões"),_show_missions)
 	_report_button = _button(content,tr("Construções da vila"),_show_report)
+	_sound_button = _button(content,"",func(): sound_toggled.emit())
+	_refresh_sound_button()
 	_menu_help_button = _button(content,tr("Como jogar"),_show_help)
 	_code_button = _button(content,tr("Código e artes do jogo ↗"),func(): OS.shell_open("https://github.com/OuterHeavenX/chill-town"))
 	_restart_button = _button(content,tr("Reiniciar partida"),_toggle_restart_confirmation)
@@ -999,6 +1006,14 @@ func _make_menu() -> void:
 	)
 	_accent(_restart_yes,DANGER)
 	_restart_back = _button(actions,tr("Voltar"),func(): _restart_confirm.hide())
+
+func set_sound_enabled(on: bool) -> void:
+	_sound_enabled = on
+	_refresh_sound_button()
+
+func _refresh_sound_button() -> void:
+	if is_instance_valid(_sound_button):
+		_sound_button.text = tr("Som: ligado") if _sound_enabled else tr("Som: desligado")
 
 func _toggle_restart_confirmation() -> void:
 	_restart_confirm.visible = not _restart_confirm.visible
@@ -1320,6 +1335,7 @@ func _retranslate() -> void:
 		if is_instance_valid(_lesson_button):
 			_lesson_button.text = tr("Missão: primeira lição")
 		_menu_help_button.text = tr("Como jogar")
+		_refresh_sound_button()
 		_code_button.text = tr("Código e artes do jogo ↗")
 		_restart_button.text = tr("Reiniciar partida")
 		_restart_prompt.text = tr("Começar uma nova vila? O progresso atual que não foi salvo será perdido.")

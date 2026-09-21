@@ -35,6 +35,7 @@ There is no account, server, or API key. Saves stay in the browser that made the
 | Draw roads | R, then drag | **Roads**, then drag with one finger |
 | Pause, speed | Space, 1 / 2 / 4 | **Pause**, **1×** button cycles speed |
 | Save / load | F5 / F9 | Menu |
+| Sound on / off | M | Menu → Sound |
 
 The camera pad appears automatically on touch screens. Two fingers do everything
 at once: pinch to zoom, twist to rotate, drag to pan, even while drawing a road.
@@ -128,6 +129,13 @@ in the code are Portuguese keys translated through `game/locale/en.json`.
   cells are highlighted while the quarry tool is active (it was invisible before).
 - Woodcutters pick the nearest tree they can actually stand beside. They used to take the
   closest trunk and stall for good when it was walled in by the middle of a grove.
+- Gave the village a soundscape. There were no audio files and one synthesised chime;
+  now wind and the river play under everything, birds call now and then, and every
+  job has its own sound — the axe, the saw, the quarry chisel, the builder's hammer,
+  the anvil — fading with distance from where the camera is looking. Buildings ding
+  when they finish, blows ring in a fight, and taking the camp earns a fanfare. Every
+  sound is still synthesised in code, so the download did not grow and nothing needs
+  a licence. Menu → Sound (or M) turns it off, and the choice is remembered.
 - Made the army visible. The battle simulation was complete — soldiers, fog of war,
   orders and camp capture all worked — but the scene the game actually loads drew none
   of it, so you commanded a company you could not see. Soldiers, the enemy camp and the

@@ -24,6 +24,7 @@ TEST_SCRIPTS = (
     "tests/test_kam_gaps.gd",
     "tests/test_harvest_map.gd",
     "tests/test_touch_hud.gd",
+    "tests/test_audio.gd",
 )
 
 

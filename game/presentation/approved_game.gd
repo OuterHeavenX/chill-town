@@ -2,6 +2,7 @@ extends Node
 
 const Village = preload("res://simulation/approved_sim.gd")
 const World = preload("res://presentation/approved_world.gd")
+const Audio = preload("res://presentation/approved_audio.gd")
 const Hud = preload("res://ui/approved_hud.gd")
 const Clock = preload("res://core/simulation_clock.gd")
 const CIVIL_PACE := 0.4
@@ -27,8 +28,7 @@ var touch_points := {}
 var pinch_distance := 0.0
 var pinch_center := Vector2.ZERO
 var pinch_angle := 0.0
-var mute := false
-var audio_player: AudioStreamPlayer
+var audio: Node
 var event_signature := ""
 var road_path: Array[Vector2i] = []
 
@@ -45,6 +45,12 @@ func _ready() -> void:
 	hud = Hud.new()
 	add_child(hud)
 	hud.setup(sim)
+	audio = Audio.new()
+	add_child(audio)
+	audio.setup(sim, world)
+	hud.set_sound_enabled(audio.enabled)
+	hud.ui_pressed.connect(func(): audio.click())
+	hud.sound_toggled.connect(_toggle_sound)
 	if not sim.events.is_empty():event_signature=str(sim.events.back().tick)+str(sim.events.back().text)
 	hud.build_selected.connect(_select_build)
 	hud.command_requested.connect(_command)
@@ -59,7 +65,6 @@ func _ready() -> void:
 	if DisplayServer.is_touchscreen_available():
 		hud.set_touch_mode(true)
 	_refresh_safe_area()
-	_setup_audio()
 	print("PLAYABLE_READY: Chill Town — 0.4.4")
 
 ## The browser reports the notch and status-bar insets; the HUD lays itself out
@@ -246,8 +251,7 @@ func _input(event: InputEvent) -> void:
 				_cancel_stroke()
 				world.orbit(-PI/6 if event.keycode == KEY_Q else PI/6)
 			KEY_M:
-				mute = not mute
-				hud.show_message(tr("Sons desativados") if mute else tr("Sons ativados"))
+				_toggle_sound()
 			KEY_LEFT, KEY_A, KEY_RIGHT, KEY_D, KEY_UP, KEY_W, KEY_DOWN, KEY_S:
 				_cancel_stroke()
 				if event.keycode in [KEY_LEFT,KEY_A]: world.pan_by(Vector2(65,0))
@@ -444,25 +448,13 @@ func _notification(what: int) -> void:
 	elif what == NOTIFICATION_WM_CLOSE_REQUEST and sim != null:
 		_write_save("user://vale-approved-autosave-v1.json")
 
-func _setup_audio() -> void:
-	audio_player = AudioStreamPlayer.new()
-	audio_player.volume_db = -18
-	add_child(audio_player)
-	var stream := AudioStreamWAV.new()
-	stream.format = AudioStreamWAV.FORMAT_16_BITS
-	stream.mix_rate = 22050
-	var bytes := PackedByteArray()
-	bytes.resize(11025*2)
-	for i in range(11025):
-		var t := float(i)/22050.0
-		var note := sin(TAU*523.25*t)*exp(-t*8.0)+0.4*sin(TAU*783.99*t)*exp(-t*10.0)
-		bytes.encode_s16(i*2,int(clampf(note,-1,1)*16000))
-	stream.data = bytes
-	audio_player.stream = stream
+func _toggle_sound() -> void:
+	audio.set_enabled(not audio.enabled)
+	hud.set_sound_enabled(audio.enabled)
+	hud.show_message(tr("Sons ativados") if audio.enabled else tr("Sons desativados"))
 
 func _chime() -> void:
-	if not mute:
-		audio_player.play()
+	audio.chime()
 
 func _extend_road(cell:Vector2i) -> void:
 	if cell.x < 1 or cell.y < 1 or cell.x >= Village.WIDTH-1 or cell.y >= Village.HEIGHT-1: return
