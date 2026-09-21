@@ -51,10 +51,12 @@ class DeveloperCliTests(unittest.TestCase):
                 file = project / script
                 file.parent.mkdir(exist_ok=True)
                 file.touch()
-            with mock.patch.object(dev, "run_engine", side_effect=[0, 0, 2, 0, 0]) as run:
+            outcomes = [0] * len(dev.TEST_SCRIPTS)
+            outcomes[2] = 2
+            with mock.patch.object(dev, "run_engine", side_effect=outcomes) as run:
                 self.assertEqual(dev.test_project(Path("godot"), project, {}), 1)
-                self.assertEqual(run.call_count, 5)
-                self.assertEqual(run.call_args.args[-1], "res://tests/test_kam_gaps.gd")
+                self.assertEqual(run.call_count, len(dev.TEST_SCRIPTS))
+                self.assertEqual(run.call_args.args[-1], f"res://{dev.TEST_SCRIPTS[-1]}")
 
     def test_temporary_web_export_preserves_sources_and_runs_preparation(self):
         with tempfile.TemporaryDirectory() as folder:
