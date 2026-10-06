@@ -1883,7 +1883,7 @@ func _definition(kind: String) -> Dictionary:
 		# The controller runs the fixed simulation clock at CIVIL_PACE=0.4 in1×.
 		# Keep the shared simulation definitions unchanged for previous versions.
 		var descriptions := {
-			"lumber":"Um lenhador produz 4 madeiras a cada 20 segundos em 1×.",
+			"lumber":"Um lenhador corta árvores em 2 troncos. Cada corte leva cerca de 15 segundos em 1×; a serraria transforma os troncos em madeira.",
 			"quarry":"Um canteiro extrai 3 pedras a cada 25 segundos em 1×.",
 			"farm":"Um horticultor cultiva 8 alimentos a cada 25 segundos em 1×.",
 			"vineyard":"Um vinhateiro colhe 4 uvas a cada 30 segundos em 1×.",

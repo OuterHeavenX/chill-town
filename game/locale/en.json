@@ -587,5 +587,7 @@
   "Recebe {takes}": "Takes {takes}",
   "Toque em um recurso na barra para ver o mesmo resumo.": "Tap a resource in the top bar for the same summary.",
   "obras ({low}–{high} por construção)": "building sites ({low}–{high} per building)",
-  "{item}: {stock} no depósito · {free} livres.": "{item}: {stock} in store · {free} free."
+  "{item}: {stock} no depósito · {free} livres.": "{item}: {stock} in store · {free} free.",
+  "Um lenhador corta árvores em 2 troncos. Cada corte leva cerca de 15 segundos em 1×; a serraria transforma os troncos em madeira.": "A woodcutter harvests trees into 2 trunks. Chopping takes about 15 seconds at 1×; the sawmill turns trunks into timber.",
+  "Formação na fila. A escola forma novos trabalhadores.": "Training queued. The school trains new workers."
 }

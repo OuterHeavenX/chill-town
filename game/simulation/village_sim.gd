@@ -316,7 +316,7 @@ func command(kind: String, payload: Dictionary = {}) -> Dictionary:
 			# Queue freely; the school itself waits for a roof before it makes anyone.
 			if workers.size()+training.size() > population_capacity():
 				return _result(true,tr("Formação na fila. Faltam casas para todos: a escola espera por moradia."))
-			return _result(true,tr("Formação na fila. O centro seleciona moradores automaticamente."))
+			return _result(true,tr("Formação na fila. A escola forma novos trabalhadores."))
 		"cancel_training":
 			for t in training:
 				if t.id == int(payload.get("id",-1)):
