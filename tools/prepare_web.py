@@ -53,7 +53,7 @@ def prepare(page: Path, assets_project: Path | None = None) -> None:
         (page.parent / notice.name).write_bytes(notice.read_bytes())
     pack = page.parent / config["mainPack"]
     digest = hashlib.sha256(pack.read_bytes()).hexdigest()
-    release = {"name": "Chill Town", "version": "0.4.4", "build": digest[:12],
+    release = {"name": "Chill Town", "version": "0.5.0", "build": digest[:12],
                "pack": config["mainPack"], "sha256": digest}
     (page.parent / "release.json").write_text(json.dumps(release, indent=2) + "\n")
 

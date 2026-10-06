@@ -25,6 +25,11 @@ TEST_SCRIPTS = (
     "tests/test_harvest_map.gd",
     "tests/test_touch_hud.gd",
     "tests/test_audio.gd",
+    "tests/test_reliability.gd",
+    "tests/test_controller.gd",
+    "tests/test_mission_spec.gd",
+    "tests/test_recovery.gd",
+    "tests/test_campaign.gd",
 )
 
 
@@ -97,7 +102,7 @@ def verify_version(engine: Path, env: dict[str, str]) -> str:
 def run_engine(engine: Path, project: Path, env: dict[str, str], *args: str) -> int:
     result = subprocess.run(
         [str(engine), "--path", str(project), *args], cwd=project,
-        env=env, check=False,
+        env=env, check=False, timeout=(600 if "res://tests/test_campaign.gd" in args else 240) if "--script" in args else None,
     )
     return result.returncode if result.returncode >= 0 else 1
 
@@ -121,7 +126,11 @@ def test_project(engine: Path, project: Path, env: dict[str, str]) -> int:
     failed = []
     for script in TEST_SCRIPTS:
         print(f"Running {script}", flush=True)
-        result = run_engine(engine, project, env, "--headless", "--script", f"res://{script}")
+        try:
+            result = run_engine(engine, project, env, "--headless", "--script", f"res://{script}")
+        except subprocess.TimeoutExpired:
+            print(f"Timed out: {script}", file=sys.stderr)
+            result = 1
         if result:
             failed.append(script)
     if failed:
@@ -161,6 +170,9 @@ def prepare_export_project(source: Path, destination: Path) -> None:
     shutil.copytree(source, destination, ignore=ignore)
     settings = destination / "project.godot"
     text = settings.read_text(encoding="utf-8")
+    commit = subprocess.run(["git", "rev-parse", "--short=12", "HEAD"], cwd=ROOT, capture_output=True, text=True, check=False)
+    build = (commit.stdout or "development").strip() if commit.returncode == 0 else "development"
+    text = set_project_value(text, "application", "config/build", '"' + build + '"')
     text = set_project_value(text, "application", "config/features",
                              'PackedStringArray("4.7", "GL Compatibility")')
     for key in ("renderer/rendering_method", "renderer/rendering_method.mobile",
@@ -196,6 +208,26 @@ def export_web(engine: Path, root: Path, env: dict[str, str]) -> int:
             )
             if result.returncode:
                 return result.returncode if result.returncode >= 0 else 1
+    print(f"Exported {output}")
+    return 0
+
+
+def export_linux(engine: Path, root: Path, env: dict[str, str]) -> int:
+    """Export a native x86_64 Compatibility build for Linux and Steam Deck."""
+    output = root / "builds/linux/chill-town.x86_64"
+    output.parent.mkdir(parents=True, exist_ok=True)
+    with tempfile.TemporaryDirectory(prefix="chill-town-linux-") as directory:
+        project = Path(directory) / "game"
+        prepare_export_project(root / "game", project)
+        result = import_project(engine, project, env)
+        if result:
+            return result
+        result = run_engine(engine, project, env, "--headless", "--export-release", "Linux", str(output))
+        if result:
+            return result
+        if not output.is_file() or not output.with_suffix(".pck").is_file():
+            raise DevError("Linux export did not produce the executable and game pack")
+        output.chmod(0o755)
     print(f"Exported {output}")
     return 0
 
@@ -246,6 +278,7 @@ def parse_args(argv: list[str] | None = None) -> argparse.Namespace:
         "run": "launch the game",
         "test": "import and run the headless simulation and HUD tests",
         "export-web": "export a temporary Compatibility copy to builds/web",
+        "export-linux": "export native Linux / Steam Deck to builds/linux",
         "serve": "serve builds/web on 127.0.0.1",
     }
     for name, description in descriptions.items():
@@ -280,6 +313,8 @@ def main(argv: list[str] | None = None) -> int:
             return result or run_engine(engine, project, env)
         if args.command == "test":
             return test_project(engine, project, env)
+        if args.command == "export-linux":
+            return export_linux(engine, ROOT, env)
         return export_web(engine, ROOT, env)
     except (DevError, OSError) as error:
         print(f"Error: {error}", file=sys.stderr)

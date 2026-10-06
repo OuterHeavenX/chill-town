@@ -5,7 +5,7 @@
   "briefing": [
     "The vineyards are what pay for everything else.",
     "Grapes become wine, and a market turns the surplus into gold.",
-    "Gold is what the school spends to turn residents into trained workers."
+    "Gold is what the school spends to train new workers. Residents keep their existing roles."
   ],
   "available_buildings": [
     "hall",
@@ -39,24 +39,75 @@
     "buildings": [
       {
         "kind": "hall",
-        "cell": [7, 10],
+        "cell": [
+          7,
+          10
+        ],
         "complete": true
       }
     ],
     "workers": [
-      {"role": "builder", "n": 2},
-      {"role": "servant", "n": 3},
-      {"role": "resident", "n": 8}
+      {
+        "role": "builder",
+        "n": 2
+      },
+      {
+        "role": "servant",
+        "n": 3
+      },
+      {
+        "role": "resident",
+        "n": 8
+      },
+      {
+        "role": "instructor",
+        "n": 1
+      }
     ],
-    "stock": {"wood": 80, "stone": 50, "food": 100, "gold": 20}
+    "stock": {
+      "wood": 80,
+      "stone": 50,
+      "food": 100,
+      "gold": 20
+    }
   },
   "objectives": [
-    {"op": "completed", "kind": "vineyard", "count": 1, "text": "Plant a vineyard"},
-    {"op": "completed", "kind": "winery", "count": 1, "text": "Build a winery"},
-    {"op": "completed", "kind": "market", "count": 1, "text": "Open a market"},
-    {"op": "produced", "kind": "wine", "count": 30, "text": "Press wine"},
-    {"op": "produced", "kind": "gold", "count": 80, "text": "Earn gold at the market"},
-    {"op": "role", "kind": "merchant", "count": 1, "text": "Train a merchant"}
+    {
+      "op": "completed",
+      "kind": "vineyard",
+      "count": 1,
+      "text": "Plant a vineyard"
+    },
+    {
+      "op": "completed",
+      "kind": "winery",
+      "count": 1,
+      "text": "Build a winery"
+    },
+    {
+      "op": "completed",
+      "kind": "market",
+      "count": 1,
+      "text": "Open a market"
+    },
+    {
+      "op": "produced",
+      "kind": "wine",
+      "count": 30,
+      "text": "Press wine"
+    },
+    {
+      "op": "produced",
+      "kind": "gold",
+      "count": 80,
+      "text": "Earn gold at the market"
+    },
+    {
+      "op": "role",
+      "kind": "merchant",
+      "count": 1,
+      "text": "Train a merchant"
+    }
   ],
   "win": {
     "all_objectives": true

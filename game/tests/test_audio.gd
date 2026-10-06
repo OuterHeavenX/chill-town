@@ -58,6 +58,7 @@ func run() -> void:
 
 	# --- In the running game: ambience, work strikes, attenuation and mute.
 	game = Game.new()
+	game.resume_on_start = false
 	root.add_child(game)
 	game.set_process(false)
 	await frames(4)
