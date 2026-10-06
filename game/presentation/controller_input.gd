@@ -127,4 +127,8 @@ func _set_click_source(source: String, down: bool) -> void:
 
 func _release_click() -> void:
 	click_sources.clear()
-	if clicking:_click(false)
+	if clicking:
+		# Cancel the world stroke and release outside controls, so B/unplug never commits it.
+		game._cancel_stroke()
+		var saved_pointer := pointer
+		pointer=Vector2(-100,-100);_click(false);pointer=saved_pointer

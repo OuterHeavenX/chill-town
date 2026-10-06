@@ -12,6 +12,15 @@ func frames(n:int=4)->void:
 	for i in range(n):await process_frame
 func button(c:Node,id:int,down:bool=true)->void:
 	var e:=InputEventJoypadButton.new();e.device=0;e.button_index=id;e.pressed=down;c._input(e)
+func find_road_point(g:Node)->Vector2:
+	var road_point:=Vector2.ZERO
+	for y in range(14,19):
+		for x in range(10,16):
+			var cell:=Vector2i(x,y)
+			var point:Vector2=g.world.camera.unproject_position(Vector3(x*g.world.CELL,0,y*g.world.CELL))
+			if g.sim.can_place_road(cell).is_empty() and not g.hud.blocks_pointer(point):road_point=point;break
+		if road_point!=Vector2.ZERO:break
+	return road_point
 func run()->void:
 	root.content_scale_mode=Window.CONTENT_SCALE_MODE_DISABLED
 	root.size=Vector2i(1280,800)
@@ -55,15 +64,14 @@ func run()->void:
 	# The same controller click path reaches the road tool in the world.
 	g.hud.close_panels();g.hud._toast.hide();g._select_build("road");await frames()
 	var road_count:int=g.sim.roads.size()
-	var road_point:=Vector2.ZERO
-	for y in range(14,19):
-		for x in range(10,16):
-			var cell:=Vector2i(x,y)
-			var point:Vector2=g.world.camera.unproject_position(Vector3(x*g.world.CELL,0,y*g.world.CELL))
-			if g.sim.can_place_road(cell).is_empty() and not g.hud.blocks_pointer(point):road_point=point;break
-		if road_point!=Vector2.ZERO:break
+	var road_point:Vector2=find_road_point(g)
 	c.pointer=road_point;c._click(true);await frames();c._click(false);await frames()
 	expect(road_point!=Vector2.ZERO and g.sim.roads.size()>road_count,"controller selection places an actual road tile")
+	var cancel_point:Vector2=find_road_point(g);c.pointer=cancel_point
+	road_count=g.sim.roads.size();c._click(true);await frames();button(c,JOY_BUTTON_B);await frames()
+	expect(cancel_point!=Vector2.ZERO and g.sim.roads.size()==road_count and not g.pointer_down,"B cancels a held road stroke without placing it")
+	g._select_build("road");c.pointer=find_road_point(g);c._click(true);await frames();c._connection(0,false);await frames()
+	expect(g.sim.roads.size()==road_count and not g.pointer_down,"disconnect cancels a held road stroke")
 	# Invalid import must leave the active simulation untouched.
 	var before:Dictionary=g.sim.snapshot();expect(not g._import_save_text("{}") and g.sim.snapshot()==before,"invalid import preserves village")
 	g.queue_free();await frames(2)
