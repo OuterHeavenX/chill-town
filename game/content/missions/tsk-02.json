@@ -7,29 +7,96 @@
     "Grain goes farm to mill to bakery, and the loaves end up on the inn's tables.",
     "Wine and weapons stay locked. Bread is the whole job here."
   ],
-  "available_buildings": ["hall", "house", "store", "training", "inn", "lumber", "sawmill", "quarry", "farm", "mill", "bakery"],
-  "available_roles": ["builder", "servant", "instructor", "lumberjack", "stonecutter", "farmer", "miller", "baker"],
+  "available_buildings": [
+    "hall",
+    "house",
+    "store",
+    "training",
+    "inn",
+    "lumber",
+    "sawmill",
+    "quarry",
+    "farm",
+    "mill",
+    "bakery"
+  ],
+  "available_roles": [
+    "builder",
+    "servant",
+    "instructor",
+    "lumberjack",
+    "stonecutter",
+    "farmer",
+    "miller",
+    "baker"
+  ],
   "start": {
     "buildings": [
       {
         "kind": "hall",
-        "cell": [7, 10],
+        "cell": [
+          7,
+          10
+        ],
         "complete": true
       }
     ],
     "workers": [
-      {"role": "builder", "n": 2},
-      {"role": "servant", "n": 3},
-      {"role": "resident", "n": 6}
+      {
+        "role": "builder",
+        "n": 2
+      },
+      {
+        "role": "servant",
+        "n": 3
+      },
+      {
+        "role": "resident",
+        "n": 6
+      },
+      {
+        "role": "instructor",
+        "n": 1
+      }
     ],
-    "stock": {"wood": 60, "stone": 40, "food": 80, "gold": 30}
+    "stock": {
+      "wood": 60,
+      "stone": 40,
+      "food": 80,
+      "gold": 30
+    }
   },
   "objectives": [
-    {"op": "completed", "kind": "farm", "count": 1, "text": "Build a farm"},
-    {"op": "completed", "kind": "mill", "count": 1, "text": "Build a mill"},
-    {"op": "completed", "kind": "bakery", "count": 1, "text": "Build a bakery"},
-    {"op": "produced", "kind": "loaves", "count": 20, "text": "Bake loaves"},
-    {"op": "stock", "kind": "food", "count": 120, "text": "Fill the larder"}
+    {
+      "op": "completed",
+      "kind": "farm",
+      "count": 1,
+      "text": "Build a farm"
+    },
+    {
+      "op": "completed",
+      "kind": "mill",
+      "count": 1,
+      "text": "Build a mill"
+    },
+    {
+      "op": "completed",
+      "kind": "bakery",
+      "count": 1,
+      "text": "Build a bakery"
+    },
+    {
+      "op": "produced",
+      "kind": "loaves",
+      "count": 20,
+      "text": "Bake loaves"
+    },
+    {
+      "op": "stock",
+      "kind": "food",
+      "count": 120,
+      "text": "Fill the larder"
+    }
   ],
   "win": {
     "all_objectives": true

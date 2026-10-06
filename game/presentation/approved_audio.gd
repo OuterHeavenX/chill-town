@@ -65,6 +65,14 @@ func setup(village: RefCounted, scene: Node3D) -> void:
 	_apply_ambience()
 
 
+func rebind_world(scene: Node3D) -> void:
+	world = scene
+	_work_timers.clear();_complete_ids.clear();_cooldowns.clear()
+	_remember_completed()
+	_won = sim.won;_lost = sim.lost
+	_captured = sim.battle != null and sim.battle.captured
+	for voice in _voices: voice.stop()
+
 func set_enabled(on: bool, persist: bool = true) -> void:
 	enabled = on
 	_apply_ambience()

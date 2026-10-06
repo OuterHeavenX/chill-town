@@ -200,7 +200,7 @@
   "Escola de instrutores": "Instructor school",
   "Escola, taverna, lenhador e pedreira estão prontos. Você pode continuar construindo.": "School, inn, lumberjack and quarry are ready. You can keep building.",
   "Escolha até 200 terrenos para a estrada.": "Choose up to 200 tiles for the road.",
-  "Escolha profissão e quantidade. A escola conectada à estrada forma a equipe automaticamente.": "Choose a trade and a quantity. A school connected by road trains the crew automatically.",
+  "Escolha profissão e quantidade. A escola conectada à estrada forma a equipe automaticamente.": "Choose a profession and quantity. The school creates new workers for 1 gold each; existing residents keep their roles. Training takes about 50 seconds at 1×.",
   "Escolha quem formar. Os moradores vão estudar e assumem seus ofícios automaticamente.": "Choose who to train. Residents study and take up their trades on their own.",
   "Escolha um ponto em terra ou na ponte.": "Choose a point on land or on the bridge.",
   "Escolha um terreno válido.": "Choose a valid tile.",
@@ -587,5 +587,7 @@
   "Recebe {takes}": "Takes {takes}",
   "Toque em um recurso na barra para ver o mesmo resumo.": "Tap a resource in the top bar for the same summary.",
   "obras ({low}–{high} por construção)": "building sites ({low}–{high} per building)",
-  "{item}: {stock} no depósito · {free} livres.": "{item}: {stock} in store · {free} free."
+  "{item}: {stock} no depósito · {free} livres.": "{item}: {stock} in store · {free} free.",
+  "Um lenhador corta árvores em 2 troncos. Cada corte leva cerca de 15 segundos em 1×; a serraria transforma os troncos em madeira.": "A woodcutter harvests trees into 2 trunks. Chopping takes about 15 seconds at 1×; the sawmill turns trunks into timber.",
+  "Formação na fila. A escola forma novos trabalhadores.": "Training queued. The school trains new workers."
 }

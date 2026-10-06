@@ -23,7 +23,11 @@
     "winery",
     "market",
     "workshop",
-    "barracks"
+    "barracks",
+    "kiln",
+    "mine",
+    "foundry",
+    "forge"
   ],
   "available_roles": [
     "builder",
@@ -36,30 +40,85 @@
     "baker",
     "vintner",
     "merchant",
-    "recruit"
+    "recruit",
+    "collier",
+    "miner",
+    "smelter",
+    "blacksmith"
   ],
   "start": {
     "buildings": [
       {
         "kind": "hall",
-        "cell": [7, 10],
+        "cell": [
+          7,
+          10
+        ],
         "complete": true
       }
     ],
     "workers": [
-      {"role": "builder", "n": 2},
-      {"role": "servant", "n": 3},
-      {"role": "resident", "n": 8}
+      {
+        "role": "builder",
+        "n": 2
+      },
+      {
+        "role": "servant",
+        "n": 3
+      },
+      {
+        "role": "resident",
+        "n": 8
+      },
+      {
+        "role": "instructor",
+        "n": 1
+      }
     ],
-    "stock": {"wood": 100, "stone": 60, "food": 120, "gold": 40}
+    "stock": {
+      "wood": 100,
+      "stone": 60,
+      "food": 120,
+      "gold": 40
+    }
   },
   "objectives": [
-    {"op": "completed", "kind": "house", "count": 6, "text": "Build six houses"},
-    {"op": "completed", "kind": "workshop", "count": 1, "text": "Build a weapon workshop"},
-    {"op": "completed", "kind": "barracks", "count": 1, "text": "Build a barracks"},
-    {"op": "population", "kind": "", "count": 32, "text": "Grow the village"},
-    {"op": "produced", "kind": "axe", "count": 6, "text": "Forge axes"},
-    {"op": "survive", "kind": "", "count": 600, "text": "Hold the village together (seconds)"}
+    {
+      "op": "completed",
+      "kind": "house",
+      "count": 6,
+      "text": "Build six houses"
+    },
+    {
+      "op": "completed",
+      "kind": "workshop",
+      "count": 1,
+      "text": "Build a weapon workshop"
+    },
+    {
+      "op": "completed",
+      "kind": "barracks",
+      "count": 1,
+      "text": "Build a barracks"
+    },
+    {
+      "op": "population",
+      "kind": "",
+      "count": 32,
+      "text": "Grow the village"
+    },
+    {
+      "op": "produced",
+      "kind": "axe",
+      "count": 6,
+      "text": "Forge axes"
+    },
+    {
+      "op": "survive",
+      "kind": "",
+      "count": 600,
+      "text": "Hold the village together (25 minutes at 1×)"
+    }
   ],
   "win": {
     "all_objectives": true

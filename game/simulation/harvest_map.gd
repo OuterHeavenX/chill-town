@@ -45,6 +45,12 @@ func harvest(cell: Vector2i) -> bool:
 	return true
 
 
+func replant(cell: Vector2i) -> bool:
+	if not _harvested.has(cell): return false
+	_harvested.erase(cell)
+	revision += 1
+	return true
+
 func is_harvested(cell: Vector2i) -> bool:
 	return _harvested.has(cell)
 

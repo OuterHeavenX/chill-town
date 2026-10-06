@@ -46,6 +46,7 @@ var detail_cursor:=0
 var sun: DirectionalLight3D
 var sky: Environment
 var day_phase := DAY_START
+var accessible_lighting := false
 ## 0 in full day, 1 in deep night; lanterns and windows follow it.
 var night := 0.0
 
@@ -481,7 +482,7 @@ func _animate_effects(node:Node3D,b:Dictionary)->void:
 ## lanterns come up as the light goes down.
 func _daylight()->void:
  if sun==null or sky==null:return
- day_phase=fposmod(DAY_START+elapsed/DAY_SECONDS,1.0)
+ day_phase=0.35 if accessible_lighting else fposmod(DAY_START+elapsed/DAY_SECONDS,1.0)
  var day_share:=1.0-NIGHT_SHARE
  var s:float
  if day_phase<day_share:s=sin(day_phase/day_share*PI)

@@ -309,6 +309,7 @@ var _resources_button: Button
 const PACE := 0.4
 var _report_button: Button
 var _report_signature := ""
+var _stock_labels: Dictionary = {}
 var _inspector: PanelContainer
 var _inspector_scroll: ScrollContainer
 var _inspected_id := -1
@@ -369,6 +370,11 @@ var _camera_buttons: Dictionary = {}
 var _touch_mode := false
 var _safe_area := Vector4.ZERO   # top, right, bottom, left (CSS pixels)
 var _army_ready := false
+var _pending_reset := {}
+var _reset_dialog: ConfirmationDialog
+var _milestones_button: Button
+var _brightness_button: Button
+var _version_label: Label
 
 func setup(sim: RefCounted) -> void:
 	_sim = sim
@@ -394,9 +400,22 @@ func setup(sim: RefCounted) -> void:
 	_make_report()
 	_make_missions()
 	_make_mode_and_toast()
+	_reset_dialog = ConfirmationDialog.new()
+	_reset_dialog.title = tr("Start a new village?")
+	_reset_dialog.dialog_text = tr("Your current village will be saved before switching. Continue?")
+	_reset_dialog.confirmed.connect(func():
+		command_requested.emit(str(_pending_reset.kind), _pending_reset.payload)
+		_pending_reset.clear()
+		close_panels())
+	_reset_dialog.canceled.connect(func(): _pending_reset.clear())
+	_root.add_child(_reset_dialog)
 	get_viewport().size_changed.connect(_layout)
 	_layout()
 	refresh()
+
+func request_reset(kind: String, payload: Dictionary = {}) -> void:
+	_pending_reset = {"kind":kind, "payload":payload}
+	_reset_dialog.popup_centered(Vector2i(mini(440,int(get_viewport().get_visible_rect().size.x)-24),190))
 
 func _make_theme() -> Theme:
 	var theme := Theme.new()
@@ -833,7 +852,7 @@ func _refresh_school_context() -> void:
 	var compact := _compact_layout()
 	_training_context.visible = not school.is_empty() and not compact
 	if school.is_empty():
-		_drawer_subtitle.text = tr("Formação automática · {count} por pedido · 2 alimentos por pessoa").format({"count":_quantity}) if compact else tr("Escolha profissão e quantidade. A escola conectada à estrada forma a equipe automaticamente.")
+		_drawer_subtitle.text = tr("New workers · {count} per order · 1 gold each").format({"count":_quantity}) if compact else tr("Escolha profissão e quantidade. A escola conectada à estrada forma a equipe automaticamente.")
 		return
 	_drawer_title.text = tr("Escola de instrutores")
 	_drawer_subtitle.text = tr("Escolha quem formar. Os moradores vão estudar e assumem seus ofícios automaticamente.")
@@ -888,6 +907,10 @@ func _choose_road() -> void:
 	build_selected.emit("road")
 
 func _choose_army() -> void:
+	if not _sim.combat_enabled:
+		show_message(tr("Peaceful village: army orders are disabled.")); return
+	if _sim.battle == null or _sim.battle._alive("ally").is_empty():
+		show_message(tr("Recruit soldiers at the barracks before giving army orders.")); return
 	_dismiss_tutorial()
 	close_panels()
 	_mode_type = "army"
@@ -995,6 +1018,11 @@ func _make_menu() -> void:
 	_load_button = _button(content,tr("Carregar partida"),func(): load_requested.emit())
 	_lesson_button = _button(content,tr("Missões"),_show_missions)
 	_report_button = _button(content,tr("Construções da vila"),_show_report)
+	_milestones_button = _button(content,tr("Town milestones"),_show_milestones)
+	_brightness_button = _button(content,tr("Lighting: atmospheric"),func(): command_requested.emit("toggle_lighting",{}))
+	_button(content,tr("Export save"),func(): command_requested.emit("export_save",{}))
+	_button(content,tr("Import save"),func(): command_requested.emit("import_save",{}))
+	_version_label = _label(content,"Chill Town · "+str(ProjectSettings.get_setting("application/config/version",""))+" · "+str(ProjectSettings.get_setting("application/config/build","development")),14,MUTED)
 	_resources_button = _button(content,tr("Recursos"),_show_report.bind("resources"))
 	_sound_button = _button(content,"",func(): sound_toggled.emit())
 	_refresh_sound_button()
@@ -1008,7 +1036,7 @@ func _make_menu() -> void:
 	_restart_yes = _button(actions,tr("Reiniciar"),func():
 		close_panels()
 		set_mode("")
-		restart_requested.emit()
+		request_reset("new_game",{})
 	)
 	_accent(_restart_yes,DANGER)
 	_restart_back = _button(actions,tr("Voltar"),func(): _restart_confirm.hide())
@@ -1043,7 +1071,8 @@ func _make_help() -> void:
 	_help.visible = false
 	var box := _vbox(_help,10)
 	var head := _hbox(box)
-	_help_title = _label(head,tr("Bem-vindo ao vale"),24,WINE)
+	_help_title = _label(head,tr("Bem-vindo ao vale"),24,WINE,true)
+	_help_title.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	_spacer(head)
 	_help_close = _button(head,tr("Fechar"),close_panels,78)
 	var scroll := ScrollContainer.new()
@@ -1064,7 +1093,7 @@ func _make_report() -> void:
 	var head := _hbox(box)
 	var titles := _vbox(head,1)
 	titles.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-	_report_title = _label(titles,tr("Construções da vila"),24,WINE)
+	_report_title = _label(titles,tr("Construções da vila"),24,WINE,true)
 	_report_summary = _label(titles,"",14,MUTED,true)
 	_report_close = _button(head,tr("Fechar"),close_panels,78)
 	var switch := _hbox(box,6)
@@ -1096,6 +1125,19 @@ func _show_report(mode: String = "buildings") -> void:
 
 ## The campaign list. Each lesson unlocks one more production chain and locks the
 ## buildings it has not taught yet, so the list doubles as the tutorial order.
+func _show_milestones() -> void:
+	close_panels()
+	_clear_children(_missions_body)
+	_missions_signature = "milestones"
+	_label(_missions_body,tr("Town milestones"),22,WINE)
+	var names := {"working_village":"Working village", "bread_chain":"Bread on the table", "trading_town":"Trading town", "iron_age":"First sword", "growing_town":"32 villagers", "camp_taken":"Camp captured"}
+	for key in names:
+		_label(_missions_body,("✓ " if _sim.milestones.has(key) else "○ ")+tr(names[key]),17,SUCCESS if _sim.milestones.has(key) else INK)
+	_label(_missions_body,tr("Trade contracts: {count} completed. Earn 100 gold through trade for a 10 gold bonus.").format({"count":_sim.trade_contracts}),16,MUTED,true)
+	_label(_missions_body,tr("Forestry: one harvested tree regrows every 20 minutes at 1× in free villages."),16,MUTED,true)
+	_missions.show()
+	_layout()
+
 func _make_missions() -> void:
 	_missions = _panel(_root,true,18)
 	_missions.name = "MissionList"
@@ -1145,9 +1187,10 @@ func _fill_missions() -> void:
 	_label(free_box,tr("Tudo liberado desde o início, sem objetivos obrigatórios."),14,MUTED,true)
 	var free_button := _button(free_box,tr("Começar vila livre"),func():
 		close_panels()
-		command_requested.emit("new_game",{})
+		request_reset("new_game",{})
 	)
 	free_button.disabled = active.is_empty()
+	_button(free_box,tr("Start peaceful village"),func(): request_reset("new_game",{"combat_enabled":false}))
 
 func _mission_row(entry: Dictionary, active: bool) -> void:
 	var mission_id := str(entry.get("id",""))
@@ -1163,9 +1206,11 @@ func _mission_row(entry: Dictionary, active: bool) -> void:
 	summary.max_lines_visible = 4
 	var start := _button(column,tr("Jogar esta lição"),func():
 		close_panels()
-		command_requested.emit("load_mission",{"id":mission_id})
+		request_reset("load_mission",{"id":mission_id})
 	)
 	start.disabled = active
+	if _sim.completed_missions.has(mission_id):
+		_label(column,tr("Completed"),14,SUCCESS)
 
 
 ## Completed and in-progress buildings per kind, cancelled ones ignored.
@@ -1205,14 +1250,18 @@ func _fill_report() -> void:
 			missing.append(str(kind))
 	signature = _report_mode+";"+signature
 	if signature == _report_signature:
+		_update_stock_labels()
 		return
 	_report_signature = signature
+	_stock_labels.clear()
 	_clear_children(_report_body)
 	if _report_mode == "resources":
 		_report_title.text = tr("Recursos")
 		_report_summary.text = tr("O que cada recurso faz e quem o usa")
 		for item: String in _ordered_items():
 			_resource_row(item)
+			_stock_labels[item] = _label(_report_body,"",14,MUTED,true)
+		_update_stock_labels()
 		_label(_report_body,tr("Toque em um recurso na barra para ver o mesmo resumo."),13,MUTED,true)
 		return
 	_report_title.text = tr("Construções da vila")
@@ -1227,6 +1276,11 @@ func _fill_report() -> void:
 		_label(_report_body,tr("Ainda não construídas"),19,WINE)
 		for kind in missing:
 			_report_row(kind,{})
+
+func _update_stock_labels() -> void:
+	for item in _stock_labels:
+		if is_instance_valid(_stock_labels[item]):
+			_stock_labels[item].text = tr("In store: {stock} · reserved: {reserved}").format({"stock":int(_sim.stock.get(item,0)),"reserved":int(_sim.reserved.get(item,0))})
 
 func _report_row(kind: String, count: Dictionary) -> void:
 	var definition := _definition(kind)
@@ -1540,6 +1594,8 @@ func show_message(text: String) -> void:
 	_layout()
 
 func close_panels() -> void:
+	if is_instance_valid(_reset_dialog):
+		_reset_dialog.hide();_pending_reset.clear()
 	entrance_highlighted.emit(Vector2i(-1,-1))
 	for panel in [_drawer,_menu,_help,_report,_missions,_inspector]:
 		if is_instance_valid(panel):
@@ -1589,7 +1645,7 @@ func _focus_village() -> void:
 func refresh() -> void:
 	if is_instance_valid(_report) and _report.visible:
 		_fill_report()
-	if is_instance_valid(_missions) and _missions.visible:
+	if is_instance_valid(_missions) and _missions.visible and _missions_signature != "milestones":
 		_fill_missions()
 	if is_instance_valid(_root) and _sim != null:
 		var army_ready := _has_completed("barracks")
@@ -1827,7 +1883,7 @@ func _definition(kind: String) -> Dictionary:
 		# The controller runs the fixed simulation clock at CIVIL_PACE=0.4 in1×.
 		# Keep the shared simulation definitions unchanged for previous versions.
 		var descriptions := {
-			"lumber":"Um lenhador produz 4 madeiras a cada 20 segundos em 1×.",
+			"lumber":"Um lenhador corta árvores em 2 troncos. Cada corte leva cerca de 15 segundos em 1×; a serraria transforma os troncos em madeira.",
 			"quarry":"Um canteiro extrai 3 pedras a cada 25 segundos em 1×.",
 			"farm":"Um horticultor cultiva 8 alimentos a cada 25 segundos em 1×.",
 			"vineyard":"Um vinhateiro colhe 4 uvas a cada 30 segundos em 1×.",
@@ -2035,16 +2091,16 @@ func _layout() -> void:
 	_refresh_inspection()
 	var menu_width := inner_width if phone else minf(310.0,inner_width)
 	_menu.position = Vector2(right_edge-menu_width,content_top)
-	_menu_scroll.vertical_scroll_mode = ScrollContainer.SCROLL_MODE_AUTO if compact else ScrollContainer.SCROLL_MODE_DISABLED
-	_menu.size = Vector2(menu_width,maxf(160.0,panel_bottom-_menu.position.y) if compact else 0.0)
+	_menu_scroll.vertical_scroll_mode = ScrollContainer.SCROLL_MODE_AUTO
+	_menu.size = Vector2(menu_width,maxf(160.0,panel_bottom-_menu.position.y))
 	var help_width := minf(630.0,inner_width)
 	var help_height := minf(570.0,bottom_edge-top_edge-10.0)
 	_help.position = Vector2(left_edge+(inner_width-help_width)*0.5,top_edge+(bottom_edge-top_edge-help_height)*0.5)
 	_help.size = Vector2(help_width,help_height)
-	_report.position = _help.position
-	_report.size = _help.size
-	_missions.position = _help.position
-	_missions.size = _help.size
+	_report.position = Vector2(left_edge+(inner_width-help_width)*0.5,_help.position.y)
+	_report.size = Vector2(help_width,help_height)
+	_missions.position = _report.position
+	_missions.size = Vector2(help_width,help_height)
 	var mode_width := minf(665.0,inner_width)
 	_mode_panel.position = Vector2(left_edge+(inner_width-mode_width)*0.5,bottom_edge-132.0)
 	_mode_panel.size = Vector2(mode_width,56)

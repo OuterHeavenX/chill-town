@@ -49,6 +49,11 @@ func setup(_peaceful_mode: bool = true) -> void:
 	food_shortage = 0
 	arrival_ticks = 0
 	last_notice = ""
+	combat_enabled = true
+	milestones.clear()
+	trade_contracts = 0
+	trade_contract_baseline = 0
+	forestry_due = FORESTRY_REGROW_TICKS
 	definitions = definitions.duplicate(true)
 	harvest_map = load("res://simulation/harvest_map.gd").new()
 	harvest_map.setup_from_natural_cells(natural_cells)
@@ -93,6 +98,27 @@ func setup(_peaceful_mode: bool = true) -> void:
 ## The village starts with seventeen people. Four more fit before anyone needs a
 ## roof, and every house after that shelters four: the number is what the school
 ## is allowed to reach, so houses are what lets a village grow.
+func _configure_mission_start(start: Dictionary) -> void:
+	roads.clear()
+	buildings.clear()
+	workers.clear()
+	training.clear()
+	next_id = 1
+	for entry in start.get("buildings", []):
+		var at: Array = entry.get("cell", [])
+		if at.size() == 2 and definitions.has(entry.get("kind", "")):
+			_add_building(str(entry.kind), Vector2i(int(at[0]), int(at[1])), bool(entry.get("complete", false)))
+	_rebuild_navigation()
+	_rebuild_plaza()
+	for group in start.get("workers", []):
+		for i in range(clampi(int(group.get("n", 0)), 0, 100)):
+			if ROLES.has(group.get("role", "")):
+				var person := _add_worker(str(group.role), HUB)
+				person.cell = plaza_rest_cell(person)
+				person.previous = person.cell
+				person.goal = person.cell
+	_rebuild_roads()
+
 func population_capacity() -> int:
 	return 21+4*_completed("house")
 
@@ -894,7 +920,10 @@ func _update_reasons() -> void:
 
 
 func notice() -> String:
-	if not is_building_connected(buildings[1]):
+	var school: Dictionary = {}
+	for b in buildings:
+		if b.kind == "training" and b.stage == "complete": school = b; break
+	if not school.is_empty() and not is_building_connected(school):
 		return tr("Trace uma estrada da praça até a entrada da escola para iniciar as formações.")
 	for building in buildings:
 		if building.stage == "materials" and not is_building_connected(building):

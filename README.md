@@ -11,7 +11,7 @@ Chill Town is an English-language fork of
 ## Play
 
 The GitHub Actions workflow in this repository exports the game and publishes it to
-GitHub Pages on every push. Once Pages is enabled for the repository (Settings →
+GitHub Pages on pushes to `main`. Once Pages is enabled for the repository (Settings →
 Pages → Source: **GitHub Actions**), the game is live at:
 
 `https://<your-user>.github.io/chill-town/`
@@ -45,6 +45,9 @@ counters as the bar can hold, and the Army button replaces Help once a barracks 
 standing. Panels are laid out inside the device safe area, so nothing hides under a
 status bar, a notch, or the home indicator.
 
+Controller and Steam Deck controls, installation, release packaging and itch.io
+setup are in [docs/RELEASE.md](docs/RELEASE.md). Steam Deck hardware validation remains pending.
+
 ## What is playable
 
 This is a browser beta, not a finished commercial release. It begins with a main
@@ -57,7 +60,7 @@ buildings, train professions, and expand the economy.
 - Woodcutters harvest the nearest tree they can reach; the sawmill turns trunks into timber; quarries need a stone deposit.
 - Grain goes through mill and bakery to loaves; workers eat at the inn.
 - Barracks take recruits plus a weapon. Army mode sets a company objective.
-- The day turns. A village day lasts about seven minutes at normal speed; the light
+- The day turns. A village day lasts about seventeen and a half minutes at normal speed; the light
   arcs from a cold morning through a brief amber dusk into a blue moonlit night,
   when the windows come alight and lanterns burn at the main building, the inn
   and the market. Chimneys smoke while someone is working inside, hearths and
@@ -65,10 +68,10 @@ buildings, train professions, and expand the economy.
 - Houses are what let the village grow. The school makes nobody the village cannot
   house: seventeen start with room for four more, and each finished house shelters
   four. A queue that has outgrown the roofs waits and says so.
-- Once you have a company, the camp answers. Every few minutes a party marches on
+- Once you have a company, the camp answers. After about ten minutes the first party marches on
   your main building; a horn sounds when it sets out. Stop it, or it walks off with
   gold, food, wood and stone from the store and rejoins the garrison, stronger. A
-  village that never arms itself is never raided.
+  village that never arms itself is never raided. Later raids are about fifteen minutes apart.
 - An enemy camp sits across the bridge, in a different place each game. Scout it, take
   it with your company, and its stores come home to your village as loot. The garrison
   stays hidden until one of your soldiers actually sees it.
@@ -87,7 +90,10 @@ buildings, train professions, and expand the economy.
   charcoal burner and goes to the foundry and the forge. Tapping a resource in the top
   bar gives the same two lines. All of it is read off the recipe tables the game runs on,
   so it cannot go stale.
-- Manual saves and autosaves are local to each browser and device.
+- Manual saves and autosaves are local to each browser and device. Startup resumes
+  the newest valid save or backup. Menu → Export/Import save transfers towns between hosts.
+- The free village has milestones, trade contract bonuses, and gradual tree regrowth.
+  Menu → Missions also offers peaceful play; Menu → Lighting improves daytime readability.
 
 ## Develop
 
@@ -103,6 +109,8 @@ python3 tools/dev.py doctor        # check the Godot version
 python3 tools/dev.py run           # launch the game
 python3 tools/dev.py test          # headless simulation tests
 python3 tools/dev.py export-web    # needs the 4.7.2 web export templates
+python3 tools/dev.py export-linux  # native Linux / Steam Deck candidate
+python3 tools/package_release.py  # package both exports for itch.io
 python3 tools/dev.py serve --port 8000
 ```
 

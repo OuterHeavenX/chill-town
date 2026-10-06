@@ -23,7 +23,7 @@ func run() -> void:
 	expect(spec.allows_building("training") and spec.allows_building("inn"), "school and inn stay available")
 	expect(not spec.allows_building("farm") and not spec.allows_building("vineyard") and not spec.allows_building("winery"), "sandbox wine chain stays locked")
 	expect(spec.allows_role("lumberjack") and not spec.allows_role("vintner") and not spec.allows_role("farmer"), "only wood/stone professions train")
-	expect(spec.objectives_met({"training":1,"inn":1,"lumber":1,"quarry":1}), "four teaching buildings win")
+	expect(spec.objectives_met({"completed":{"training":1,"inn":1,"lumber":1,"quarry":1},"roles":{"lumberjack":1,"stonecutter":1}}), "four teaching buildings win")
 	expect(not spec.objectives_met({"house":2,"farm":1}), "sandbox wine/house checklist does not win")
 
 	var sandbox := Approved.new()

@@ -1,5 +1,7 @@
 extends RefCounted
 
+const Progression = preload("res://simulation/town_progression.gd")
+const SaveMigration = preload("res://simulation/save_migration.gd")
 const Battle = preload("res://simulation/battle_sim.gd")
 const WIDTH := 36
 const HEIGHT := 28
@@ -93,6 +95,15 @@ var raid_looted := false
 var _raid_seen := false
 var _raid_hits_seen := 0
 var _raids_repelled_seen := 0
+var combat_enabled := true
+var completed_missions: Array[String] = []
+var milestones: Array[String] = []
+var trade_contracts := 0
+var trade_contract_baseline := 0
+var forestry_due := 0
+const FORESTRY_REGROW_TICKS := 4800
+const START_MEAL := 200
+const FED_MEAL := 80
 
 func setup(peaceful_mode: bool = false) -> void:
 	peaceful = peaceful_mode
@@ -153,7 +164,7 @@ func _add_building(kind: String, cell: Vector2i, complete: bool = false) -> Dict
 	return b
 
 func _add_worker(role: String, cell: Vector2i) -> Dictionary:
-	var w := {"id":_id(),"role":role,"cell":cell,"previous":cell,"route":[],"state":tr("Disponível"),"task":{},"cargo":{},"work":0.0,"wait":0,"goal":cell,"meal":200,"yield_until":0,"jobs":0}
+	var w := {"id":_id(),"role":role,"cell":cell,"previous":cell,"route":[],"state":tr("Disponível"),"task":{},"cargo":{},"work":0.0,"wait":0,"goal":cell,"meal":START_MEAL,"yield_until":0,"jobs":0}
 	workers.append(w)
 	return w
 
@@ -305,7 +316,7 @@ func command(kind: String, payload: Dictionary = {}) -> Dictionary:
 			# Queue freely; the school itself waits for a roof before it makes anyone.
 			if workers.size()+training.size() > population_capacity():
 				return _result(true,tr("Formação na fila. Faltam casas para todos: a escola espera por moradia."))
-			return _result(true,tr("Formação na fila. O centro seleciona moradores automaticamente."))
+			return _result(true,tr("Formação na fila. A escola forma novos trabalhadores."))
 		"cancel_training":
 			for t in training:
 				if t.id == int(payload.get("id",-1)):
@@ -316,7 +327,10 @@ func command(kind: String, payload: Dictionary = {}) -> Dictionary:
 					return _result(true,tr("Formação cancelada. O morador está disponível."))
 			return _result(false,tr("Formação não encontrada."))
 		"army":
-			_ensure_battle()
+			if not combat_enabled:
+				return _result(false,tr("Peaceful village: army orders are disabled."))
+			if battle == null or battle._alive("ally").is_empty():
+				return _result(false,tr("Recruit soldiers at the barracks before giving army orders."))
 			if battle == null:
 				return _result(false,tr("Não há companhia formada."))
 			if typeof(payload.get("target")) != TYPE_VECTOR2I:
@@ -340,6 +354,7 @@ func _load_mission(mission_id: String) -> Dictionary:
 		return _result(false, tr("Missão não encontrada."))
 	setup(peaceful)
 	mission = spec
+	_configure_mission_start(spec.start)
 	if spec.start is Dictionary and spec.start.get("stock") is Dictionary:
 		stock = _empty_items()
 		for item in spec.start.stock:
@@ -353,6 +368,24 @@ func _load_mission(mission_id: String) -> Dictionary:
 		_emit(tr(str(line)))
 	return _result(true, tr("Missão {id} iniciada.").format({"id": spec.id}))
 
+
+func _configure_mission_start(start: Dictionary) -> void:
+	buildings.clear()
+	workers.clear()
+	training.clear()
+	next_id = 1
+	for entry in start.get("buildings", []):
+		var at: Array = entry.get("cell", [])
+		if at.size() == 2 and definitions.has(entry.get("kind", "")):
+			_add_building(str(entry.kind), Vector2i(int(at[0]), int(at[1])), bool(entry.get("complete", false)))
+	_rebuild_navigation()
+	for group in start.get("workers", []):
+		for i in range(clampi(int(group.get("n", 0)), 0, 100)):
+			if ROLES.has(group.get("role", "")):
+				_add_worker(str(group.role), _free_cell(Vector2i(8, 14)))
+
+func _update_progression() -> void:
+	Progression.update(self)
 
 func _result(ok: bool, message: String) -> Dictionary:
 	return {"ok":ok,"message":message}
@@ -419,6 +452,8 @@ func _ensure_battle() -> void:
 
 
 func _recruit(role: String) -> Dictionary:
+	if not combat_enabled:
+		return _result(false,tr("Peaceful village: recruitment is disabled."))
 	if role not in ["lancer","archer"]:
 		return _result(false,tr("Tipo de tropa inválido."))
 	if _completed("barracks") == 0:
@@ -524,16 +559,19 @@ func step() -> void:
 		if bool(battle.captured) and not raid_looted:
 			_collect_loot()
 		_watch_raids()
-		if bool(battle.defeated) and not lost:
-			lost = true
-			_emit(tr("A companhia foi derrotada."), "chime")
+		# Losing the company does not stop the civilian economy or replacement training.
+		if bool(battle.defeated) and not bool(stats.get("company_defeated", false)):
+			_emit(tr("Company defeated. The village continues; recruit replacements."), "chime")
+		stats.company_defeated = bool(battle.defeated)
 	if not won:
 		if mission != null and mission.has_method("objectives_met") and mission.objectives_met(mission_state()):
 			won = true
+			if not completed_missions.has(mission.id): completed_missions.append(mission.id)
 			_emit(tr("Objetivos da missão cumpridos. A vila pode continuar."))
-		elif mission == null and _completed("training") > 0 and _completed("inn") > 0 and _completed("lumber") > 0 and _completed("quarry") > 0:
-			won = true
-			_emit(tr("Escola, taverna, lenhador e pedreira estão prontos. Você pode continuar construindo."))
+	_update_progression()
+	if not won and mission == null and _completed("training") > 0 and _completed("inn") > 0 and _completed("lumber") > 0 and _completed("quarry") > 0:
+		won = true
+		_emit(tr("Escola, taverna, lenhador e pedreira estão prontos. Você pode continuar construindo."))
 
 ## The village learns of raids by watching the battle, the same way it learns of
 ## the camp falling. A horn sounds when a party sets out; the loss is booked
@@ -982,7 +1020,7 @@ func _eat_at_inn(w: Dictionary, inn: Dictionary) -> void:
 	if eaten.is_empty():
 		w.state = tr("Taverna sem comida")
 		return
-	w.meal = 80
+	w.meal = FED_MEAL
 	w.state = tr("Comeu na taverna")
 	_release(w)
 
@@ -1008,8 +1046,9 @@ func _chop_tree(w: Dictionary, hut: Dictionary) -> void:
 	produced.trunks += 2
 	w.state = tr("Árvore derrubada")
 	w.task = {"type": "produce", "building": hut.id}
-	w.goal = hut.cell + Vector2i(-1, 1)
-	_go(w, w.goal)
+	# Some approved huts have a blocked side work cell; use their connected door.
+	if not _go(w, hut.cell + Vector2i(-1, 1)) and not _go(w, hut.entrance):
+		_release(w)
 
 
 ## Where a ware comes from and where it goes, read off the same tables the
@@ -1181,7 +1220,7 @@ func _produce(w: Dictionary, b: Dictionary) -> void:
 			stats.food_produced += int(recipe[1])
 			b.output.corn = int(b.output.get("corn", 0)) + 8
 			produced.corn += 8
-		if b.kind == "workshop" and int(b.output.get("bow", 0)) < int(b.output.get("axe", 0)):
+		if b.kind == "workshop" and int(produced.get("bow", 0)) < int(produced.get("axe", 0)):
 			b.output.axe -= 1
 			produced.axe -= 1
 			b.output.bow = int(b.output.get("bow", 0)) + 1
@@ -1374,7 +1413,7 @@ func conservation_errors() -> Array[String]:
 	return errors
 
 func snapshot() -> Dictionary:
-	return _encode({"version":SAVE_VERSION,"mode":"peaceful" if peaceful else "standard","tick":tick,"next_id":next_id,"buildings":buildings,"workers":workers,"stock":stock,"reserved":reserved,"consumed":consumed,"produced":produced,"initial":initial,"training":training,"events":events,"stats":stats,"won":won,"lost":lost,"paused":paused,"food_shortage":food_shortage,"arrival_ticks":arrival_ticks,"raid_camp":{"__cell":[raid_camp.x,raid_camp.y]},"raid_looted":raid_looted,"battle":battle.snapshot() if battle != null else null,"harvested_cells":harvest_map.harvested_cells() if harvest_map != null else []})
+	return _encode({"version":SAVE_VERSION,"mode":"peaceful" if peaceful else "standard","tick":tick,"next_id":next_id,"buildings":buildings,"workers":workers,"stock":stock,"reserved":reserved,"consumed":consumed,"produced":produced,"initial":initial,"training":training,"events":events,"stats":stats,"won":won,"lost":lost,"paused":paused,"food_shortage":food_shortage,"arrival_ticks":arrival_ticks,"raid_camp":{"__cell":[raid_camp.x,raid_camp.y]},"raid_looted":raid_looted,"battle":battle.snapshot() if battle != null else null,"harvested_cells":harvest_map.harvested_cells() if harvest_map != null else [],"mission_id":mission.id if mission != null else "","combat_enabled":combat_enabled,"completed_missions":completed_missions,"milestones":milestones,"trade_contracts":trade_contracts,"trade_contract_baseline":trade_contract_baseline,"forestry_due":forestry_due})
 
 func _encode(value: Variant) -> Variant:
 	if typeof(value) == TYPE_VECTOR2I:
@@ -1407,6 +1446,7 @@ func _decode(value: Variant) -> Variant:
 	return value
 
 func restore(state: Dictionary) -> bool:
+	state = _migrate_save(state)
 	# Validate the shape before decoding; game saves are data, never executable objects.
 	if not _valid_save(state):
 		return false
@@ -1426,16 +1466,25 @@ func restore(state: Dictionary) -> bool:
 ## save with no company leaves none behind.
 func _restore_battle(s: Dictionary) -> bool:
 	if s.get("battle") == null:
-		if peaceful:
-			battle = null
+		battle = null
 		return true
 	_ensure_battle()
 	if battle == null or not battle.restore(s.battle):
 		return false
 	_sync_raid_watch()
+	if not s.has("combat_enabled") and lost and battle.defeated:
+		lost = false # Recover villages frozen by the former company-defeat bug.
 	return true
 
 func _apply(s: Dictionary) -> void:
+	var mission_id := str(s.get("mission_id", ""))
+	mission = load("res://simulation/mission_spec.gd").load_id(mission_id) if not mission_id.is_empty() else null
+	combat_enabled = bool(s.get("combat_enabled", true))
+	completed_missions.assign(s.get("completed_missions", []))
+	milestones.assign(s.get("milestones", []))
+	trade_contracts = int(s.get("trade_contracts", 0))
+	trade_contract_baseline = int(s.get("trade_contract_baseline", 0))
+	forestry_due = int(s.get("forestry_due", 0))
 	tick = int(s.tick)
 	next_id = int(s.next_id)
 	buildings.assign(s.buildings)
@@ -1467,7 +1516,20 @@ func _safe_int(value: Variant) -> bool:
 func _valid_cell(value: Variant) -> bool:
 	return value is Dictionary and value.has("__cell") and value.__cell is Array and value.__cell.size() == 2 and _safe_int(value.__cell[0]) and _safe_int(value.__cell[1]) and value.__cell[0] < WIDTH and value.__cell[1] < HEIGHT
 
+func _migrate_save(source: Dictionary) -> Dictionary:
+	return SaveMigration.normalize(source, SAVE_VERSION, ITEMS)
+
 func _valid_save(s: Dictionary) -> bool:
+	var mission_id: Variant = s.get("mission_id", "")
+	if not mission_id is String or (not mission_id.is_empty() and not load("res://simulation/mission_spec.gd").CAMPAIGN.has(mission_id)):
+		return false
+	if typeof(s.get("combat_enabled", true)) != TYPE_BOOL: return false
+	for key in ["completed_missions", "milestones"]:
+		if not s.get(key, []) is Array or s.get(key, []).size() > 32: return false
+		for entry in s.get(key, []):
+			if not entry is String: return false
+	for key in ["trade_contracts", "trade_contract_baseline", "forestry_due"]:
+		if not _safe_int(s.get(key, 0)): return false
 	if s.get("version") != SAVE_VERSION:
 		return false
 	# Old version-1 saves are standard games. A scene never imports the other mode.

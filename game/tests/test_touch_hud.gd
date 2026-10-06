@@ -41,7 +41,7 @@ func run()->void:
 	expect(TranslationServer.translate("Cortando árvore")=="Chopping a tree","newly added strings are translated")
 	# --- Phone-sized window: portrait 390x664 logical pixels.
 	root.size=Vector2i(390,664)
-	game=Game.new();root.add_child(game);game.set_process(false);game.sim.paused=true
+	game=Game.new();game.resume_on_start=false;root.add_child(game);game.set_process(false);game.sim.paused=true
 	game.hud._dismiss_tutorial();game.hud._toast.hide();await frames(8)
 	var hud=game.hud
 	expect(hud._tabs.build.text=="Build" and hud._tabs.road.text=="Roads","dock labels are English")

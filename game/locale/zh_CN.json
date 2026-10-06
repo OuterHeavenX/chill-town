@@ -463,5 +463,7 @@
   "Recebe {takes}": "投入{takes}",
   "Toque em um recurso na barra para ver o mesmo resumo.": "点按顶栏的资源可查看同样的摘要。",
   "obras ({low}–{high} por construção)": "工地（每座建筑{low}–{high}）",
-  "{item}: {stock} no depósito · {free} livres.": "{item}：仓库{stock} · 可用{free}。"
+  "{item}: {stock} no depósito · {free} livres.": "{item}：仓库{stock} · 可用{free}。",
+  "Um lenhador corta árvores em 2 troncos. Cada corte leva cerca de 15 segundos em 1×; a serraria transforma os troncos em madeira.": "伐木工将树木砍成2根原木。1倍速下每次砍伐约需15秒；锯木厂将原木加工成木材。",
+  "Formação na fila. A escola forma novos trabalhadores.": "训练已排队。学校将培养新工人。"
 }
